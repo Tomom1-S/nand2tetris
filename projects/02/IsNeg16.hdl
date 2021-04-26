@@ -1,0 +1,13 @@
+/**
+ * 16-bit IsNegative:
+ * out = 1 if in < 0
+ *       0 otherwise
+ */
+
+CHIP IsNeg16 {
+    IN in[16];
+    OUT out;
+
+    PARTS:
+    And(a=in[15], b=true, out=out);
+}
