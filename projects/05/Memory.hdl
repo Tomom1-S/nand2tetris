@@ -27,5 +27,11 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    DMux4Way(in=load, sel[0]=address[14], sel[1]=false, a=loadRAM, b=loadIO);  // DMux16
+    RAM16K(in=in, load=loadRAM, address=address[0..13], out=outRAM);
+    DMux4Way(in=loadIO, sel[0]=address[13], sel[1]=false, a=loadSCR, b=loadKB);  // I/O device input
+    Screen(in=in, load=loadSCR, address=address[0..12], out=outSCR);
+    Keyboard(out=outKB);
+    Mux16(a=outSCR, b=outKB, sel=address[13], out=outIO);  // I/O device output
+    Mux16(a=outRAM, b=outIO, sel=address[14], out=out);
 }
