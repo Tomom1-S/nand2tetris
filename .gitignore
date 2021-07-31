@@ -1,6 +1,16 @@
-.DS_Store
-/.idea
+# Editors
+.idea
 *.iml
 
+# OS metadata
+.DS_Store
+
+# nand2tetris
 *.out
 /tools
+
+# Dependency directory
+node_modules
+
+# Ignore built ts files
+dist
