@@ -1,28 +1,36 @@
 import * as fs from "fs";
-
+import { CommandType } from "./CommandType";
 
 export class Parser {
-  data: string;
+  // reader;
+  data: string[];
+  index = 0;
+  command = "";
+
+  regexComment = /^\/\/.*$/g;
+  regexAcommand = /^@[A-z0-9_.$:]+( +\/\/.*)*$/g;
+  regexCcommand = /^[AMD]*=?.+;?.*( +\/\/.*)*$/g;
+  regexLcommand = /^[(][A-z_.$:][A-z0-9_.$:]+[)]+( +\/\/.*)*$/g;
 
   constructor(filePath: string) {
-    fs.readFile(filePath, { encoding: "utf8" }, (err, file) => {
-      if (err) {
-        console.error(err.message);
-        process.exit(1);
-      }
-
-      this.data = file;
-      console.log(file);
-    });
+    const file = fs.readFileSync(filePath, { encoding: "utf8" });
+    this.data = file.toString().split("\n");
   }
 
   hasMoreCommands(): boolean {
-    // TODO: 入力にまだコマンドが存在するか?
-    return false;
+    if (!this.data || this.index >= this.data.length) {
+      return false;
+    }
+    let line = this.data[this.index];
+    while (this.index < this.data.length && (line === "" || line.match(this.regexComment))) {
+      line = this.data[++this.index];
+    }
+    return this.index < this.data.length;
   }
 
   advance(): void {
     // TODO: 入力から次のコマンドを読み、それを 現在のコマンドにする。このルーチンは hasMoreCommands() が true の場 合のみ呼ぶようにする。最初は現コマンド は空である
+    this.command = this.data[this.index++];
   }
 
   commandType(): CommandType {
@@ -30,7 +38,13 @@ export class Parser {
     - A_COMMAND は@Xxx を意味し、Xxx はシンボルか 10 進数の数値である
     - C_COMMANDはdest=comp;jump を意味する
     - L_COMMAND は擬似コマンドであり、 (Xxx) を意味する。Xxx はシンボル である */
-    return CommandType.Accomand;
+    if (this.command.match(this.regexAcommand)) {
+      return CommandType.a;
+    }
+    if (this.command.match(this.regexLcommand)) {
+      return CommandType.l
+    }
+    return CommandType.c;
   }
 
   symbol(): string {
