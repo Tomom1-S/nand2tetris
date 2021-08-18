@@ -1,12 +1,21 @@
 export class Code {
+  /**
+   * dest ニーモニックのバイナリコードを返す
+   * @param mnemonic
+   * @returns [store A register, store D register, store M register]
+   */
   dest(mnemonic: string): boolean[] {
-    // TODO: dest ニーモニックのバイナリコードを返す
     return [false, false, false];
   }
 
+  /**
+   *
+   * @param mnemonic
+   * @returns
+   */
   comp(mnemonic: string): boolean[] {
     // TODO: comp ニーモニックのバイナリコードを返す
-    return [false, false, false];
+    return [false, false, false, false, false, false, false];
   }
 
   jump(mnemonic: string): boolean[] {
