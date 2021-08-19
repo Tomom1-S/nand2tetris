@@ -7,7 +7,7 @@ const filepath = process.argv.slice(2)[0];
 const parser = new Parser(filepath);
 const code = new Code();
 
-let result = "dummy";
+let result = "";
 
 while (parser.hasMoreCommands()) {
   parser.advance();
@@ -16,8 +16,12 @@ while (parser.hasMoreCommands()) {
   console.log(commandType);
   if (commandType !== CommandType.c) {
     const symbol = parser.symbol();
-    // console.log(`0${symbol}`);
-    result = result.concat("0", symbol, "¥n");
+    console.log(symbol);
+    if (!Number.isNaN(Number(symbol))) {
+      const num = Number(symbol).toString(2);
+      result = result.concat(num.padStart(16, "0"), "\n");
+    }
+    // TODO: ラベルのときの変換
     continue;
   }
 
@@ -25,7 +29,7 @@ while (parser.hasMoreCommands()) {
   const comp = convertBitString(code.comp(parser.comp()));
   const jump = convertBitString(code.jump(parser.jump()));
   // console.log(`${dest}${comp}${jump}`);
-  result = result.concat(dest, comp, jump, "¥n");
+  result = result.concat(dest, comp, jump, "\n");
 }
 
 // TODO: filepathの名前に合わせて、保存するときの名前を変える

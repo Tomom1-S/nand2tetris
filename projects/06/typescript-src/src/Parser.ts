@@ -2,15 +2,15 @@ import * as fs from "fs";
 import { CommandType } from "./CommandType";
 
 export class Parser {
-  // reader;
-  data: string[];
-  index = 0;
-  command = "";
-
   regexComment = /^\/\/.*$/g;
   regexAcommand = /^@[A-z0-9_.$:]+( +\/\/.*)*$/g;
   regexCcommand = /^[AMD]*=?.+;?.*( +\/\/.*)*$/g;
-  regexLcommand = /^[(][A-z_.$:][A-z0-9_.$:]+[)]+( +\/\/.*)*$/g;
+  regexLcommand = /^\([A-z_.$:][A-z0-9_.$:]?\)( +\/\/.*)*$/g;
+  regexSimpleLcommand = /\((.*?)?\)/;
+
+  data: string[];
+  index = 0;
+  command = "";
 
   constructor(filePath: string) {
     const file = fs.readFileSync(filePath, { encoding: "utf8" });
@@ -28,16 +28,21 @@ export class Parser {
     return this.index < this.data.length;
   }
 
+  /**
+   * 入力から次のコマンドを読み、それを現在のコマンドにする
+   */
   advance(): void {
-    // TODO: 入力から次のコマンドを読み、それを 現在のコマンドにする。このルーチンは hasMoreCommands() が true の場 合のみ呼ぶようにする。最初は現コマンド は空である
     this.command = this.data[this.index++];
   }
 
+  /**
+   * 現コマンドの種類を返す
+   * @returns
+   * - A_COMMANDは@Xxxを意味し、Xxxはシンボルか10進数の数値である
+   * - C_COMMANDはdest=comp;jumpを意味する
+   * - L_COMMANDは擬似コマンドであり、(Xxx)を意味する。Xxxはシンボルである
+   */
   commandType(): CommandType {
-    /* TODO: 現コマンドの種類を返す。
-    - A_COMMAND は@Xxx を意味し、Xxx はシンボルか 10 進数の数値である
-    - C_COMMANDはdest=comp;jump を意味する
-    - L_COMMAND は擬似コマンドであり、 (Xxx) を意味する。Xxx はシンボル である */
     if (this.command.match(this.regexAcommand)) {
       return CommandType.a;
     }
@@ -47,23 +52,33 @@ export class Parser {
     return CommandType.c;
   }
 
+  /**
+   * 現コマンド@Xxxまたは(Xxx)のXxxを返す
+   * @returns シンボルまたは10進数の数値
+   */
   symbol(): string {
-    // TODO: 現コマンド@Xxx または (Xxx) の Xxx を返す。Xxx はシンボルまたは 10 進数の数値である。このルーチンは commandType() が A_COMMAND ま たは L_COMMAND のときだけ呼ぶように する
-    return "dummy";
+    if (this.commandType() === CommandType.a) {
+      return this.command.match(this.regexAcommand)![0].split(" ")[0].split("@")[1];
+    }
+    if (this.commandType() === CommandType.l) {
+      return this.command.match(this.regexSimpleLcommand)![1];
+    }
+
+    throw new Error("symbol: Invalid command");
   }
 
   dest(): string {
     // TODO: 現 C 命令の dest ニーモニックを返 す(候補として 8 つの可能性がある)。 このルーチンは commandType() が C_COMMAND のときだけ呼ぶようにする
-    return "dummy";
+    return "dest";
   }
 
   comp(): string {
     // TODO: 現 C 命令の comp ニーモニックを返 す(候補として 28 個の可能性がある)。 このルーチンは commandType() が C_COMMAND のときだけ呼ぶようにする
-    return "dummy";
+    return "comp";
   }
 
   jump(): string {
     // TODO: 現 C 命令の jump ニーモニックを返 す(候補として 8 つの可能性がある)。 このルーチンは commandType() が C_COMMAND のときだけ呼ぶようにする
-    return "dummy";
+    return "jump";
   }
 }
