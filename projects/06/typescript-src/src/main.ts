@@ -13,13 +13,11 @@ while (parser.hasMoreCommands()) {
   parser.advance();
 
   const commandType: CommandType = parser.commandType();
-  console.log(commandType);
   if (commandType !== CommandType.c) {
     const symbol = parser.symbol();
-    console.log(symbol);
     if (!Number.isNaN(Number(symbol))) {
       const num = Number(symbol).toString(2);
-      result = result.concat(num.padStart(16, "0"), "\n");
+      result = result.concat(`${num.padStart(16, "0")}\n`);
     }
     // TODO: ラベルのときの変換
     continue;
@@ -28,12 +26,13 @@ while (parser.hasMoreCommands()) {
   const dest = convertBitString(code.dest(parser.dest()));
   const comp = convertBitString(code.comp(parser.comp()));
   const jump = convertBitString(code.jump(parser.jump()));
-  // console.log(`${dest}${comp}${jump}`);
-  result = result.concat(dest, comp, jump, "\n");
+  result = result.concat(`111${comp}${dest}${jump}\n`);
 }
 
 // TODO: filepathの名前に合わせて、保存するときの名前を変える
-fs.writeFile("hogehoge.hack", result, (err) => {
+const savepath = filepath.slice(0, filepath.lastIndexOf("/"));
+const filename = filepath.split("/").pop()?.split(".")[0];
+fs.writeFile(`${savepath}/${filename}1.hack`, result, (err) => {
   if (err) {
     console.log(err);
   }

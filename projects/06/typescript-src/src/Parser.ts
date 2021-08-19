@@ -63,22 +63,40 @@ export class Parser {
     if (this.commandType() === CommandType.l) {
       return this.command.match(this.regexSimpleLcommand)![1];
     }
-
     throw new Error("symbol: Invalid command");
   }
 
+  /**
+   * 現C命令のdestニーモニックを返す
+   * @returns destニーモニック
+   */
   dest(): string {
-    // TODO: 現 C 命令の dest ニーモニックを返 す(候補として 8 つの可能性がある)。 このルーチンは commandType() が C_COMMAND のときだけ呼ぶようにする
-    return "dest";
+    if (!this.command.includes("=")) {
+      return "null";
+    }
+    return this.command.split("=")[0];
   }
 
+  /**
+   * 現C命令のcompニーモニックを返す
+   * @returns compニーモニック
+   */
   comp(): string {
-    // TODO: 現 C 命令の comp ニーモニックを返 す(候補として 28 個の可能性がある)。 このルーチンは commandType() が C_COMMAND のときだけ呼ぶようにする
-    return "comp";
+    const destComp = this.command.split(";")[0];
+    if (!destComp.includes("=")) {
+      return destComp.split(" ")[0];
+    }
+    return destComp.split("=")[1].split(" ")[0];
   }
 
+  /**
+   * 現C命令のjumpニーモニックを返す
+   * @returns jumpニーモニック
+   */
   jump(): string {
-    // TODO: 現 C 命令の jump ニーモニックを返 す(候補として 8 つの可能性がある)。 このルーチンは commandType() が C_COMMAND のときだけ呼ぶようにする
-    return "jump";
+    if (!this.command.includes(";")) {
+      return "null";
+    }
+    return this.command.split(";")[1].split(" ")[0];
   }
 }
