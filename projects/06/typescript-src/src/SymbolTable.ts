@@ -46,6 +46,7 @@ export class SymbolTable {
     if (address !== undefined) {
       return address;
     }
+    // 変数シンボルを定義
     this.table.set(symbol, this.memoryAddress++);
     address = this.table.get(symbol);
     if (address !== undefined) {
