@@ -2,11 +2,11 @@ import * as fs from "fs";
 import { CommandType } from "./CommandType";
 
 export class Parser {
-  regexComment = /^\/\/.*$/g;
-  regexAcommand = /^@[A-z0-9_.$:]+( +\/\/.*)*$/g;
-  regexCcommand = /^[AMD]*=?.+;?.*( +\/\/.*)*$/g;
-  regexLcommand = /^\([A-z_.$:][A-z0-9_.$:]?\)( +\/\/.*)*$/g;
-  regexSimpleLcommand = /\((.*?)?\)/;
+  regexComment = /^ *\/\/.*$/g;
+  regexAcommand = /^ *@[A-z0-9_.$:]+ *(\/\/.*)*$/g;
+  regexCcommand = /^ *[AMD]*=?.+;?.* *(\/\/.*)*$/g;
+  regexLcommand = /^ *\([A-z_.$:][A-z0-9_.$:]*\) *(\/\/.*)*$/g;
+  regexSimpleLcommand = /^ *\((.*?)?\)/;
 
   data: string[];
   index = 0;
@@ -14,7 +14,7 @@ export class Parser {
 
   constructor(filePath: string) {
     const file = fs.readFileSync(filePath, { encoding: "utf8" });
-    this.data = file.toString().split("\n");
+    this.data = file.toString().split(/\r?\n/);
   }
 
   hasMoreCommands(): boolean {
@@ -49,7 +49,10 @@ export class Parser {
     if (this.command.match(this.regexLcommand)) {
       return CommandType.l
     }
-    return CommandType.c;
+    if (this.command.match(this.regexCcommand)) {
+      return CommandType.c;
+    }
+    throw new Error("Not assigned to any CommandType")
   }
 
   /**
@@ -57,13 +60,14 @@ export class Parser {
    * @returns シンボルまたは10進数の数値
    */
   symbol(): string {
-    if (this.commandType() === CommandType.a) {
-      return this.command.match(this.regexAcommand)![0].split(" ")[0].split("@")[1];
+    switch (this.commandType()) {
+      case CommandType.a:
+        return this.command.match(this.regexAcommand)![0].replace(/\s/g, "").split("@")[1].split("//")[0];
+      case CommandType.l:
+        return this.command.match(this.regexSimpleLcommand)![1];
+      default:
+        throw new Error("symbol: Invalid command");;
     }
-    if (this.commandType() === CommandType.l) {
-      return this.command.match(this.regexSimpleLcommand)![1];
-    }
-    throw new Error("symbol: Invalid command");
   }
 
   /**
@@ -74,7 +78,7 @@ export class Parser {
     if (!this.command.includes("=")) {
       return "null";
     }
-    return this.command.split("=")[0];
+    return this.command.split("=")[0].replace(/\s/g, "");
   }
 
   /**
@@ -82,11 +86,11 @@ export class Parser {
    * @returns compニーモニック
    */
   comp(): string {
-    const destComp = this.command.split(";")[0];
+    const destComp = this.command.replace(/\s/g, "").split(";")[0];
     if (!destComp.includes("=")) {
-      return destComp.split(" ")[0];
+      return destComp;
     }
-    return destComp.split("=")[1].split(" ")[0];
+    return destComp.split("=")[1].split("//")[0];
   }
 
   /**
@@ -97,6 +101,6 @@ export class Parser {
     if (!this.command.includes(";")) {
       return "null";
     }
-    return this.command.split(";")[1].split(" ")[0];
+    return this.command.split(";")[1].split("//")[0].replace(/\s/g, "");
   }
 }
