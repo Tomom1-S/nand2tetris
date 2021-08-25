@@ -2,7 +2,7 @@
   "name": "typescript-src",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
     "lint": "tslint 'src/{**/,*/}*.ts'",
     "test": "echo \"Error: no test specified\" && exit 1"
