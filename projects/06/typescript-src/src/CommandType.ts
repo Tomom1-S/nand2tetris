@@ -1,9 +1,8 @@
-export class CommandType
-{
-    constructor(public value:string){    
+export class CommandType {
+    constructor(public value: string) {
     }
 
-    toString(){
+    toString() {
         return this.value;
     }
 

@@ -31,7 +31,7 @@ export class SymbolTable {
   }
 
   addEntry(symbol: string, address: number): void {
-    if (this.contains(symbol) ) {
+    if (this.contains(symbol)) {
       return;
     }
     this.table.set(symbol, address);
