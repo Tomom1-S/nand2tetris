@@ -5,26 +5,21 @@ export class Code {
    * @returns [store A register, store D register, store M register]
    */
   dest(mnemonic: string): boolean[] {
-    switch (mnemonic) {
-      case "null":
-        return [false, false, false];
-      case "M":
-        return [false, false, true];
-      case "D":
-        return [false, true, false];
-      case "MD":
-        return [false, true, true];
-      case "A":
-        return [true, false, false];
-      case "AM":
-        return [true, false, true];
-      case "AD":
-        return [true, true, false];
-      case "AMD":
-        return [true, true, true];
-      default:
-        throw new Error("dest: Invalid mnemonic");
+    let a = false;
+    let d = false;
+    let m = false;
+
+    if (mnemonic.includes("A")) {
+      a = true;
     }
+    if (mnemonic.includes("D")) {
+      d = true;
+    }
+    if (mnemonic.includes("M")) {
+      m = true;
+    }
+
+    return [a, d, m];
   }
 
   /**
