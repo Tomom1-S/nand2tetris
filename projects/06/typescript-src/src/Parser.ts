@@ -2,11 +2,10 @@ import * as fs from "fs";
 import "./CommandType";
 
 export class Parser {
-  regexComment = /^ *\/\/.*$/g;
-  regexAcommand = /^ *@[A-z0-9_.$:]+ *(\/\/.*)*$/g;
-  regexCcommand = /^ *[AMD]*=?.+;?.* *(\/\/.*)*$/g;
-  regexLcommand = /^ *\([A-z_.$:][A-z0-9_.$:]*\) *(\/\/.*)*$/g;
-  regexSimpleLcommand = /^ *\((.*?)?\)/;
+  regexComment = /^ *\/\/.*$/;
+  regexAcommand = /^ *@(?<label>[A-z0-9_.$:]+) *(\/\/.*)*$/;
+  regexCcommand = /^ *(?<dest>[AMD]*)=?(?<comp>[AMD01\+\-\!&|]+);?(?<jump>[A-Z]*) *(\/\/.*)*$/;
+  regexLcommand = /^ *\((?<label>[A-z_.$:][A-z0-9_.$:]*)\) *(\/\/.*)*$/;
 
   data: string[];
   index = 0;
@@ -60,14 +59,21 @@ export class Parser {
    * @returns シンボルまたは10進数の数値
    */
   symbol(): string {
+    let label: string | undefined;
     switch (this.commandType().name) {
       case "A_COMMAND":
-        return this.command.match(this.regexAcommand)![0].replace(/\s/g, "").split("@")[1].split("//")[0];
+        label = this.regexAcommand.exec(this.command)?.groups?.label;
+        break;
       case "L_COMMAND":
-        return this.command.match(this.regexSimpleLcommand)![1];
+        label = this.regexLcommand.exec(this.command)?.groups?.label;
+        break;
       default:
-        throw new Error("symbol: Invalid command");;
+        throw new Error("symbol: Invalid command");
     }
+    if (label) {
+      return label;
+    }
+    throw new Error("symbol: Not found");
   }
 
   /**
@@ -75,10 +81,11 @@ export class Parser {
    * @returns destニーモニック
    */
   dest(): string {
-    if (!this.command.includes("=")) {
-      return "null";
+    const dest = this.regexCcommand.exec(this.command)?.groups?.dest;
+    if (dest) {
+      return dest;
     }
-    return this.command.split("=")[0].replace(/\s/g, "");
+    return "null";
   }
 
   /**
@@ -86,11 +93,11 @@ export class Parser {
    * @returns compニーモニック
    */
   comp(): string {
-    const destComp = this.command.replace(/\s/g, "").split(";")[0];
-    if (!destComp.includes("=")) {
-      return destComp;
+    const comp = this.regexCcommand.exec(this.command)?.groups?.comp;
+    if (comp) {
+      return comp;
     }
-    return destComp.split("=")[1].split("//")[0];
+    throw new Error("comp: Not found");
   }
 
   /**
@@ -98,9 +105,10 @@ export class Parser {
    * @returns jumpニーモニック
    */
   jump(): string {
-    if (!this.command.includes(";")) {
-      return "null";
+    const jump = this.regexCcommand.exec(this.command)?.groups?.jump;
+    if (jump) {
+      return jump;
     }
-    return this.command.split(";")[1].split("//")[0].replace(/\s/g, "");
+    return "null";
   }
 }
