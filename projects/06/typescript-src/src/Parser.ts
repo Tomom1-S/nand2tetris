@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { CommandType } from "./CommandType";
+import "./CommandType";
 
 export class Parser {
   regexComment = /^ *\/\/.*$/g;
@@ -44,13 +44,13 @@ export class Parser {
    */
   commandType(): CommandType {
     if (this.command.match(this.regexAcommand)) {
-      return CommandType.a;
+      return { name: "A_COMMAND" };
     }
     if (this.command.match(this.regexLcommand)) {
-      return CommandType.l
+      return { name: "L_COMMAND" };
     }
     if (this.command.match(this.regexCcommand)) {
-      return CommandType.c;
+      return { name: "C_COMMAND" };
     }
     throw new Error("Not assigned to any CommandType")
   }
@@ -60,10 +60,10 @@ export class Parser {
    * @returns シンボルまたは10進数の数値
    */
   symbol(): string {
-    switch (this.commandType()) {
-      case CommandType.a:
+    switch (this.commandType().name) {
+      case "A_COMMAND":
         return this.command.match(this.regexAcommand)![0].replace(/\s/g, "").split("@")[1].split("//")[0];
-      case CommandType.l:
+      case "L_COMMAND":
         return this.command.match(this.regexSimpleLcommand)![1];
       default:
         throw new Error("symbol: Invalid command");;

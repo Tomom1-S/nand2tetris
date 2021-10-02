@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import { Code } from './Code';
-import { CommandType } from './CommandType';
 import { Parser } from "./Parser";
 import { SymbolTable } from './SymbolTable';
 
@@ -12,7 +11,7 @@ let address = 0;
 while (parser1.hasMoreCommands()) {
   parser1.advance();
 
-  if (parser1.commandType() !== CommandType.l) {
+  if (parser1.commandType().name !== "L_COMMAND") {
     address++;
     continue;
   }
@@ -28,28 +27,28 @@ let result = "";
 while (parser2.hasMoreCommands()) {
   parser2.advance();
 
-  const commandType: CommandType = parser2.commandType();
-  if (commandType === CommandType.l) {
-    continue;
+  const commandType = parser2.commandType();
+  switch (commandType.name) {
+    case "L_COMMAND":
+      break;
+    case "A_COMMAND":
+      const symbol = parser2.symbol();
+      // When symbol is a label
+      let symbolValue;
+      if (Number.isNaN(Number(symbol))) {
+        symbolValue = table.getAddress(symbol);
+      } else {
+        symbolValue = Number(symbol);
+      }
+      const num = symbolValue.toString(2);
+      result = result.concat(`${num.padStart(16, "0")}\n`);
+      break;
+    default:  // C_COMMAND
+      const dest = convertBitString(code.dest(parser2.dest()));
+      const comp = convertBitString(code.comp(parser2.comp()));
+      const jump = convertBitString(code.jump(parser2.jump()));
+      result = result.concat(`111${comp}${dest}${jump}\n`);
   }
-  if (commandType === CommandType.a) {
-    const symbol = parser2.symbol();
-    // When symbol is a label
-    let symbolValue;
-    if (Number.isNaN(Number(symbol))) {
-      symbolValue = table.getAddress(symbol);
-    } else {
-      symbolValue = Number(symbol);
-    }
-    const num = symbolValue.toString(2);
-    result = result.concat(`${num.padStart(16, "0")}\n`);
-    continue;
-  }
-
-  const dest = convertBitString(code.dest(parser2.dest()));
-  const comp = convertBitString(code.comp(parser2.comp()));
-  const jump = convertBitString(code.jump(parser2.jump()));
-  result = result.concat(`111${comp}${dest}${jump}\n`);
 }
 
 // TODO: filepathの名前に合わせて、保存するときの名前を変える
