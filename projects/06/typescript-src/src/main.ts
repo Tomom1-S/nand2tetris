@@ -51,7 +51,6 @@ while (parser2.hasMoreCommands()) {
   }
 }
 
-// TODO: filepathの名前に合わせて、保存するときの名前を変える
 const savepath = filepath.slice(0, filepath.lastIndexOf("/"));
 const filename = filepath.split("/").pop()?.split(".")[0];
 fs.writeFile(`${savepath}/${filename}1.hack`, result, (err) => {
