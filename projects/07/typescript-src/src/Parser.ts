@@ -46,7 +46,6 @@ export class Parser {
    * @returns 最初の引数
    */
   arg1(): string {
-    
     // TODO: 最初の引数を取り出す
     return "";
   }
@@ -56,7 +55,7 @@ export class Parser {
    * 現コマンドがC_PUSH、C_POP、C_FUNCTION、C_CALLの場合のみ本ルーチンを呼ぶようにする。
    * @returns 2番目の引数
    */
-   arg2(): number {
+  arg2(): number {
     // TODO: 2番目の引数を取り出す
     return 0;
   }

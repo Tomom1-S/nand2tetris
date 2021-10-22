@@ -1,6 +1,5 @@
 export class CommandType {
-  constructor(public value: string) {
-  }
+  constructor(public value: string) {}
 
   toString() {
     return this.value;
