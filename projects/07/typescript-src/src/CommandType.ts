@@ -1,4 +1,4 @@
-type CommandType =
+export type CommandType =
   | {
       name: "C_ARITHMETIC";
     }
