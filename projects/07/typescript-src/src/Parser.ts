@@ -1,23 +1,27 @@
 import * as fs from "fs";
-import { CommandType } from "./CommandType";
+import { CommandType } from "./type";
 
 export class Parser {
   data: string[];
   index = 0;
-  command = "";
+  command: string[] = [];
 
   constructor(filePath: string) {
     const file = fs.readFileSync(filePath, { encoding: "utf8" });
-    this.data = file.toString().split(/\r?\n/);
+    this.data = file
+      .toString()
+      .split(/\r?\n/)
+      .filter((line) => line) // 空行を除去
+      .filter((line) => !line.startsWith("//")); // コメント行を削除
   }
 
+  /**
+   * 入力において、さらにコマンドが存在するか?
+   * @returns コマンドが存在するか
+   */
   hasMoreCommands(): boolean {
-    if (!this.data || this.index >= this.data.length) {
+    if (!this.data) {
       return false;
-    }
-    let line = this.data[this.index];
-    while (this.index < this.data.length && line === "") {
-      line = this.data[++this.index];
     }
     return this.index < this.data.length;
   }
@@ -26,7 +30,8 @@ export class Parser {
    * 入力から次のコマンドを読み、それを現在のコマンドにする
    */
   advance(): void {
-    this.command = this.data[this.index++];
+    this.command = this.data[this.index++].split(" ");
+    console.log(this.command);
   }
 
   /**
@@ -34,9 +39,31 @@ export class Parser {
    * @returns CommandType
    */
   commandType(): CommandType {
-    // TODO: コマンドの種類の判別
-    return CommandType.arithmetic;
-    // throw new Error("Not assigned to any CommandType")
+    switch (this.command[0]) {
+      case "push":
+        return {
+          name: "C_PUSH",
+          command: "push",
+        };
+      case "pop":
+        return {
+          name: "C_POP",
+          command: "pop",
+        };
+      case "add":
+      case "sub":
+      case "neg":
+      case "eq":
+      case "gt":
+      case "lt":
+      case "and":
+      case "or":
+      case "not":
+        return {
+          name: "C_ARITHMETIC",
+        };
+    }
+    throw new Error("Not assigned to any CommandType");
   }
 
   /**
@@ -46,8 +73,10 @@ export class Parser {
    * @returns 最初の引数
    */
   arg1(): string {
-    // TODO: 最初の引数を取り出す
-    return "";
+    if (this.command.length < 2) {
+      throw new Error(`No 1st argument found in "${this.command.join(" ")}"`);
+    }
+    return this.command[1];
   }
 
   /**
@@ -56,7 +85,9 @@ export class Parser {
    * @returns 2番目の引数
    */
   arg2(): number {
-    // TODO: 2番目の引数を取り出す
-    return 0;
+    if (this.command.length < 3) {
+      throw new Error(`No 2nd argument found in "${this.command.join(" ")}"`);
+    }
+    return parseInt(this.command[2]);
   }
 }

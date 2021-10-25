@@ -4,9 +4,11 @@ export type CommandType =
     }
   | {
       name: "C_PUSH";
+      command: "push";
     }
   | {
       name: "C_POP";
+      command: "pop";
     }
   | {
       name: "C_LABEL";

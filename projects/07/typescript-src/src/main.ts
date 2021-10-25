@@ -38,13 +38,14 @@ for (const target of targets) {
       case "C_RETURN":
         break;
       case "C_ARITHMETIC":
-        writer.writeArithmetic(parser.arg1());
+        // writer.writeArithmetic(parser.arg1());
         break;
-      case "C_POP":
       case "C_PUSH":
-        writer.writePushPop(commandType.name, parser.arg1(), parser.arg2());
+      case "C_POP":
+        writer.writePushPop(commandType.command, parser.arg1(), parser.arg2());
         break;
       default:
+        // プログラムフロー、関数呼び出しのコマンドについてはこの演習では扱わない
         break;
     }
   }
