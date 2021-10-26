@@ -46,7 +46,8 @@ function convertPush(segment: string, index: number): string {
   // 4. 最後に、static セグメントに対応する。
   switch (segment) {
     case "constant":
-      return `@${index}\nD=A`;
+      // TODO ここ合ってる？
+      return `@${index}\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1`;
     default:
       throw new Error("Invalid push segment.");
   }
