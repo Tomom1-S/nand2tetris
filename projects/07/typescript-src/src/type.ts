@@ -1,6 +1,16 @@
 export type CommandType =
   | {
       name: "C_ARITHMETIC";
+      command:
+        | "add"
+        | "sub"
+        | "neg"
+        | "eq"
+        | "gt"
+        | "lt"
+        | "and"
+        | "or"
+        | "not";
     }
   | {
       name: "C_PUSH";

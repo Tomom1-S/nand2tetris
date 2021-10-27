@@ -61,6 +61,7 @@ export class Parser {
       case "not":
         return {
           name: "C_ARITHMETIC",
+          command: this.command[0],
         };
     }
     throw new Error("Not assigned to any CommandType");
@@ -73,6 +74,10 @@ export class Parser {
    * @returns 最初の引数
    */
   arg1(): string {
+    if (this.commandType().name === "C_ARITHMETIC") {
+      return this.command[0];
+    }
+
     if (this.command.length < 2) {
       throw new Error(`No 1st argument found in "${this.command.join(" ")}"`);
     }

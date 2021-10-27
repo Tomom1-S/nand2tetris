@@ -38,7 +38,7 @@ for (const target of targets) {
       case "C_RETURN":
         break;
       case "C_ARITHMETIC":
-        // writer.writeArithmetic(parser.arg1());
+        writer.writeArithmetic(parser.arg1());
         break;
       case "C_PUSH":
       case "C_POP":
