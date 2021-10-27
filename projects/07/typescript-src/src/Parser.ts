@@ -31,7 +31,6 @@ export class Parser {
    */
   advance(): void {
     this.command = this.data[this.index++].split(" ");
-    console.log(this.command);
   }
 
   /**

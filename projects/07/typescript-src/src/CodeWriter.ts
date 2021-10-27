@@ -9,12 +9,12 @@ export class CodeWriter {
   static readonly POP_TOP = "@SP\nAM=M-1\nD=M\n";
 
   constructor(filepath: string) {
-    console.log(filepath);
     this.saveName = `${filepath.substr(0, filepath.lastIndexOf("."))}.asm`;
   }
 
   setFileName(fileName: string): void {
     // TODO: CodeWriterモジュールに新しいVMファイルの変換が開始したことを知らせる
+    // ↑どういう意味？？？
     this.fileName = fileName;
   }
 
