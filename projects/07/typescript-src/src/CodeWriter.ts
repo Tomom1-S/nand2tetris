@@ -107,16 +107,18 @@ function convertPush(segment: string, index: number): string {
   }
 
   const label = createLabel({ segment, index });
-  let formula;
+  let formula = { forwardAddress: "", moveTargetAddress: "" };
   switch (segment) {
     case "pointer":
     case "temp":
-      formula = "";
       break;
     default:
-      formula = "A=M+D\n";
+      formula = {
+        forwardAddress: `@${index}\nD=A\n`,
+        moveTargetAddress: "A=M+D\n",
+      };
   }
-  return `@${index}\nD=A\n@${label}\n${formula}D=M\n${CodeWriter.PUSH_STACK}`;
+  return `${formula.forwardAddress}@${label}\n${formula.moveTargetAddress}D=M\n${CodeWriter.PUSH_STACK}`;
 }
 
 function convertPop(segment: string, index: number): string {
