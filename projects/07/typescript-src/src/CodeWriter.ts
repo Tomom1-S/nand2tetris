@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 
 export class CodeWriter {
   fileName: string;
@@ -18,7 +19,7 @@ export class CodeWriter {
   setFileName(fileName: string): void {
     // TODO: CodeWriterモジュールに新しいVMファイルの変換が開始したことを知らせる
     // ↑どういう意味？？？
-    this.fileName = fileName;
+    this.fileName = path.parse(fileName).name;
   }
 
   writeArithmetic(command: string): void {
@@ -78,10 +79,10 @@ export class CodeWriter {
     let asm;
     switch (command) {
       case "push":
-        asm = convertPush(segment, index);
+        asm = convertPush(segment, index, this.fileName);
         break;
       case "pop":
-        asm = convertPop(segment, index);
+        asm = convertPop(segment, index, this.fileName);
         break;
       default:
         throw new Error(`Invalid command: ${command}`);
@@ -101,16 +102,17 @@ export class CodeWriter {
   }
 }
 
-function convertPush(segment: string, index: number): string {
+function convertPush(segment: string, index: number, fileName: string): string {
   if (segment === "constant") {
     return `@${index}\nD=A\n${CodeWriter.PUSH_STACK}`;
   }
 
-  const label = createLabel({ segment, index });
+  const label = createLabel({ segment, index }, fileName);
   let formula = { forwardAddress: "", moveTargetAddress: "" };
   switch (segment) {
     case "pointer":
     case "temp":
+    case "static":
       break;
     default:
       formula = {
@@ -121,12 +123,13 @@ function convertPush(segment: string, index: number): string {
   return `${formula.forwardAddress}@${label}\n${formula.moveTargetAddress}D=M\n${CodeWriter.PUSH_STACK}`;
 }
 
-function convertPop(segment: string, index: number): string {
-  const label = createLabel({ segment, index });
+function convertPop(segment: string, index: number, fileName: string): string {
+  const label = createLabel({ segment, index }, fileName);
   let formula = { forwardAddress: "", moveTargetAddress: "", backAddress: "" };
   switch (segment) {
     case "pointer":
     case "temp":
+    case "static":
       break;
     default:
       formula = {
@@ -138,7 +141,10 @@ function convertPop(segment: string, index: number): string {
   return `${formula.forwardAddress}${CodeWriter.POP_STACK}@${label}\n${formula.moveTargetAddress}M=D\n${formula.backAddress}`;
 }
 
-function createLabel(input: { segment: string; index: number }): string {
+function createLabel(
+  input: { segment: string; index: number },
+  fileName: string
+): string {
   switch (input.segment) {
     case "local":
       return "LCL";
@@ -153,7 +159,7 @@ function createLabel(input: { segment: string; index: number }): string {
     case "temp":
       return `R${CodeWriter.TEMP_BASE + input.index}`;
     case "static":
-      return "";
+      return `${fileName}.${input.index}`;
     default:
       throw new Error(`Invalid segment: ${input.segment}`);
   }
