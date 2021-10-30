@@ -6,6 +6,8 @@ export class CodeWriter {
   labelCount = 0;
   result = "";
 
+  static readonly POINTER_BASE = 3;
+  static readonly TEMP_BASE = 5;
   static readonly POP_STACK = "@SP\nAM=M-1\nD=M\n";
   static readonly PUSH_STACK = "@SP\nA=M\nM=D\n@SP\nM=M+1\n";
 
@@ -67,13 +69,11 @@ export class CodeWriter {
       default:
         throw new Error(`Invalid command: ${command}`);
     }
-    this.result = `${this.result}${asm}`;
+    this.result = `${this.result}${asm}\n`;
   }
 
   writePushPop(command: string, segment: string, index: number): void {
     // TODO: C_PUSHまたはC_POPコマンドをアセンブリコードに変換し、それを書き込む
-    // 2. local、argument、this、that セグメントに対応する。
-    // 3. 続いて、pointer と temp セグメントに対応する。特に、this と that セグメントのベースの修正ができるようにする。
     // 4. 最後に、static セグメントに対応する。
     let asm;
     switch (command) {
@@ -86,7 +86,7 @@ export class CodeWriter {
       default:
         throw new Error(`Invalid command: ${command}`);
     }
-    this.result = `${this.result}${asm}`;
+    this.result = `${this.result}${asm}\n`;
   }
 
   close(): void {
@@ -102,56 +102,57 @@ export class CodeWriter {
 }
 
 function convertPush(segment: string, index: number): string {
-  let label = "";
+  if (segment === "constant") {
+    return `@${index}\nD=A\n${CodeWriter.PUSH_STACK}`;
+  }
+
+  const label = createLabel({ segment, index });
+  let formula;
   switch (segment) {
-    case "constant":
-      return `@${index}\nD=A\n${CodeWriter.PUSH_STACK}`;
-    case "local":
-      label = "LCL";
-      break;
-    case "argument":
-      label = "ARG";
-      break;
-    case "this":
-      label = "THIS";
-      break;
-    case "that":
-      label = "THAT";
-      break;
     case "pointer":
     case "temp":
-    case "static":
-      return "";
+      formula = "";
+      break;
     default:
-      throw new Error(`Invalid push segment: ${segment}`);
+      formula = "A=M+D\n";
   }
-  return `@${index}\nD=A\n@${label}\nA=M+D\nD=M\n${CodeWriter.PUSH_STACK}`;
+  return `@${index}\nD=A\n@${label}\n${formula}D=M\n${CodeWriter.PUSH_STACK}`;
 }
 
 function convertPop(segment: string, index: number): string {
-  let label = "";
+  const label = createLabel({ segment, index });
+  let formula = { forwardAddress: "", moveTargetAddress: "", backAddress: "" };
   switch (segment) {
-    case "local":
-      label = "LCL";
-      break;
-    case "argument":
-      label = "ARG";
-      break;
-    case "this":
-      label = "THIS";
-      break;
-    case "that":
-      label = "THAT";
-      break;
     case "pointer":
     case "temp":
+      break;
+    default:
+      formula = {
+        forwardAddress: `@${index}\nD=A\n@${label}\nM=M+D\n`,
+        moveTargetAddress: "A=M\n",
+        backAddress: `@${index}\nD=A\n@${label}\nM=M-D\n`,
+      };
+  }
+  return `${formula.forwardAddress}${CodeWriter.POP_STACK}@${label}\n${formula.moveTargetAddress}M=D\n${formula.backAddress}`;
+}
+
+function createLabel(input: { segment: string; index: number }): string {
+  switch (input.segment) {
+    case "local":
+      return "LCL";
+    case "argument":
+      return "ARG";
+    case "this":
+      return "THIS";
+    case "that":
+      return "THAT";
+    case "pointer":
+      return `R${CodeWriter.POINTER_BASE + input.index}`;
+    case "temp":
+      return `R${CodeWriter.TEMP_BASE + input.index}`;
     case "static":
       return "";
     default:
-      throw new Error(`Invalid pop segment: ${segment}`);
+      throw new Error(`Invalid segment: ${input.segment}`);
   }
-  return (
-    `@${index}\nD=A\n@${label}\nM=M+D\n${CodeWriter.POP_STACK}` +
-    `@${label}\nA=M\nM=D\n@${index}\nD=A\n@${label}\nM=M-D\n`
-  );
 }
