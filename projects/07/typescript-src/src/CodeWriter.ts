@@ -24,7 +24,6 @@ export class CodeWriter {
   }
 
   writeArithmetic(command: string): void {
-    let asm;
     switch (command) {
       case "add":
         this.results.push(...POP_STACK);
@@ -43,7 +42,6 @@ export class CodeWriter {
         this.results.push("M=M+1");
         return;
       case "neg":
-        this.results.push(...POP_STACK);
         this.results.push("@SP");
         this.results.push("AM=M-1");
         this.results.push("M=-M");
@@ -133,7 +131,6 @@ export class CodeWriter {
         this.results.push("M=M+1");
         return;
       case "not":
-        this.results.push(...POP_STACK);
         this.results.push("@SP");
         this.results.push("AM=M-1");
         this.results.push("M=!M");
