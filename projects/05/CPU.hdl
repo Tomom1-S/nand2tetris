@@ -39,5 +39,46 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Put your code here:
+    // writeM
+    And(a=instruction[3], b=isC, out=writeM);
+
+    // Decode
+    Not(in=instruction[15], out=isA);  // Is instruction A command?
+    Not(in=isA, out=isC);  // Is instruction C command?
+
+    // ARegister
+    Mux16(a=outALU, b=instruction, sel=isA, out=inA);
+    Or(a=isA, b=instruction[5], out=loadA);
+    ARegister(in=inA, load=loadA, out=outA, out[0..14]=addressM);
+
+    // DRegister
+    And(a=instruction[4], b=isC, out=loadD);
+    DRegister(in=outALU, load=loadD, out=outD);
+
+    // ALU
+    And(a=instruction[12], b=isC, out=selM);
+    Mux16(a=outA, b=inM, sel=selM, out=outAM);  // A or M
+    And(a=instruction[11], b=isC, out=zx);
+    And(a=instruction[10], b=isC, out=nx);
+    And(a=instruction[9], b=isC, out=zy);
+    And(a=instruction[8], b=isC, out=ny);
+    And(a=instruction[7], b=isC, out=f);
+    And(a=instruction[6], b=isC, out=no);
+    ALU(x=outD, y=outAM,
+        zx=zx, nx=nx, zy=zy, ny=ny, f=f, no=no,
+        out=outALU, out=outM, zr=zr, ng=ng);
+
+    // PC
+    Not(in=zr, out=notZr);
+    Not(in=ng, out=notNg);
+    And(a=notZr, b=notNg, out=ps);  // Is ALU output positive?
+    And(a=instruction[2], b=isC, out=jlt);
+    And(a=instruction[1], b=isC, out=jeq);
+    And(a=instruction[0], b=isC, out=jgt);
+    And(a=jlt, b=ng, out=isLT);
+    And(a=jeq, b=zr, out=isEQ);
+    And(a=jgt, b=ps, out=isGT);
+    Or(a=isLT, b=isEQ, out=isLE);
+    Or(a=isLE, b=isGT, out=jump);
+    PC(in=outA, load=jump, inc=true, reset=reset, out[0..14]=pc);
 }
