@@ -1,16 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 
+const SEPARATOR = "\n";
+const POINTER_BASE = 3;
+const TEMP_BASE = 5;
+const POP_STACK = ["@SP", "AM=M-1", "D=M"];
+const PUSH_STACK = ["@SP", "A=M", "M=D", "@SP", "M=M+1"];
+
 export class CodeWriter {
   fileName: string;
   saveName: string;
   labelCount = 0;
-  result = "";
-
-  static readonly POINTER_BASE = 3;
-  static readonly TEMP_BASE = 5;
-  static readonly POP_STACK = "@SP\nAM=M-1\nD=M\n";
-  static readonly PUSH_STACK = "@SP\nA=M\nM=D\n@SP\nM=M+1\n";
+  results: string[] = [];
 
   constructor(filepath: string) {
     this.saveName = `${filepath.substr(0, filepath.lastIndexOf("."))}.asm`;
@@ -26,51 +27,122 @@ export class CodeWriter {
     let asm;
     switch (command) {
       case "add":
-        asm = `${CodeWriter.POP_STACK}@SP\nAM=M-1\nM=M+D\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("M=M+D");
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       case "sub":
-        asm = `${CodeWriter.POP_STACK}@SP\nAM=M-1\nM=M-D\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("M=M-D");
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       case "neg":
-        asm = "@SP\nAM=M-1\nM=-M\n@SP\nM=M+1\n";
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("M=-M");
+        this.results.push("@SP");
+        this.results.push("M=M+1");
         break;
       case "eq": {
         const count = this.labelCount++;
-        asm =
-          `${CodeWriter.POP_STACK}@SP\nAM=M-1\nD=M-D\n` +
-          `@TRUE_${count}\nD;JEQ\n@SP\nA=M\nM=0\n@END_${count}\n0;JMP\n` +
-          `(TRUE_${count})\n@SP\nA=M\nM=-1\n(END_${count})\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("D=M-D");
+        this.results.push(`@TRUE_${count}`);
+        this.results.push("D;JEQ");
+        this.results.push("@SP");
+        this.results.push("A=M");
+        this.results.push("M=0");
+        this.results.push(`@END_${count}`);
+        this.results.push("0;JMP");
+        this.results.push(`(TRUE_${count})`);
+        this.results.push("@SP");
+        this.results.push("A=M");
+        this.results.push("M=-1");
+        this.results.push(`(END_${count})`);
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       }
       case "gt": {
         const count = this.labelCount++;
-        asm =
-          `${CodeWriter.POP_STACK}@SP\nAM=M-1\nD=M-D\n` +
-          `@TRUE_${count}\nD;JGT\n@SP\nA=M\nM=0\n@END_${count}\n0;JMP\n` +
-          `(TRUE_${count})\n@SP\nA=M\nM=-1\n(END_${count})\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("D=M-D");
+        this.results.push(`@TRUE_${count}`);
+        this.results.push("D;JGT");
+        this.results.push("@SP");
+        this.results.push("A=M");
+        this.results.push("M=0");
+        this.results.push(`@END_${count}`);
+        this.results.push("0;JMP");
+        this.results.push(`(TRUE_${count})`);
+        this.results.push("@SP");
+        this.results.push("A=M");
+        this.results.push("M=-1");
+        this.results.push(`(END_${count})`);
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       }
       case "lt": {
         const count = this.labelCount++;
-        asm =
-          `${CodeWriter.POP_STACK}@SP\nAM=M-1\nD=M-D\n` +
-          `@TRUE_${count}\nD;JLT\n@SP\nA=M\nM=0\n@END_${count}\n0;JMP\n` +
-          `(TRUE_${count})\n@SP\nA=M\nM=-1\n(END_${count})\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("D=M-D");
+        this.results.push(`@TRUE_${count}`);
+        this.results.push("D;JLT");
+        this.results.push("@SP");
+        this.results.push("A=M");
+        this.results.push("M=0");
+        this.results.push(`@END_${count}`);
+        this.results.push("0;JMP");
+        this.results.push(`(TRUE_${count})`);
+        this.results.push("@SP");
+        this.results.push("A=M");
+        this.results.push("M=-1");
+        this.results.push(`(END_${count})`);
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       }
       case "and":
-        asm = `${CodeWriter.POP_STACK}@SP\nAM=M-1\nM=M&D\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("M=M&D");
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       case "or":
-        asm = `${CodeWriter.POP_STACK}@SP\nAM=M-1\nM=M|D\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("M=M|D");
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       case "not":
-        asm = `@SP\nAM=M-1\nM=!M\n@SP\nM=M+1\n`;
-        break;
+        this.results.push(...POP_STACK);
+        this.results.push("@SP");
+        this.results.push("AM=M-1");
+        this.results.push("M=!M");
+        this.results.push("@SP");
+        this.results.push("M=M+1");
+        return;
       default:
         throw new Error(`Invalid command: ${command}`);
     }
-    this.result = `${this.result}${asm}\n`;
   }
 
   writePushPop(command: string, segment: string, index: number): void {
@@ -87,14 +159,16 @@ export class CodeWriter {
       default:
         throw new Error(`Invalid command: ${command}`);
     }
-    this.result = `${this.result}${asm}\n`;
+    this.results.push(...asm);
   }
 
   close(): void {
     // 最後に無限ループを入れてHackプログラムを終了させる
-    this.result = `${this.result}(END)\n@END\n0;JMP\n`;
+    this.results.push("(END)");
+    this.results.push("@END");
+    this.results.push("0;JMP");
 
-    fs.writeFile(this.saveName, this.result, (err) => {
+    fs.writeFile(this.saveName, this.results.join(SEPARATOR), (err) => {
       if (err) {
         throw err;
       }
@@ -102,43 +176,81 @@ export class CodeWriter {
   }
 }
 
-function convertPush(segment: string, index: number, fileName: string): string {
+function convertPush(
+  segment: string,
+  index: number,
+  fileName: string
+): string[] {
   if (segment === "constant") {
-    return `@${index}\nD=A\n${CodeWriter.PUSH_STACK}`;
+    const results = [];
+    results.push(`@${index}`);
+    results.push("D=A");
+    results.push(...PUSH_STACK);
+    return results;
   }
 
   const label = createLabel({ segment, index }, fileName);
-  let formula = { forwardAddress: "", moveTargetAddress: "" };
+  const formula = {
+    forwardAddress: [] as string[],
+    moveTargetAddress: [] as string[],
+  };
   switch (segment) {
     case "pointer":
     case "temp":
     case "static":
       break;
     default:
-      formula = {
-        forwardAddress: `@${index}\nD=A\n`,
-        moveTargetAddress: "A=M+D\n",
-      };
+      formula.forwardAddress.push(`@${index}`);
+      formula.forwardAddress.push("D=A");
+
+      formula.moveTargetAddress.push("A=M+D");
   }
-  return `${formula.forwardAddress}@${label}\n${formula.moveTargetAddress}D=M\n${CodeWriter.PUSH_STACK}`;
+  const results = [];
+  results.push(...formula.forwardAddress);
+  results.push(`@${label}`);
+  results.push(...formula.moveTargetAddress);
+  results.push("D=M");
+  results.push(...PUSH_STACK);
+  return results;
 }
 
-function convertPop(segment: string, index: number, fileName: string): string {
+function convertPop(
+  segment: string,
+  index: number,
+  fileName: string
+): string[] {
   const label = createLabel({ segment, index }, fileName);
-  let formula = { forwardAddress: "", moveTargetAddress: "", backAddress: "" };
+  const formula = {
+    forwardAddress: [] as string[],
+    moveTargetAddress: [] as string[],
+    backAddress: [] as string[],
+  };
   switch (segment) {
     case "pointer":
     case "temp":
     case "static":
       break;
     default:
-      formula = {
-        forwardAddress: `@${index}\nD=A\n@${label}\nM=M+D\n`,
-        moveTargetAddress: "A=M\n",
-        backAddress: `@${index}\nD=A\n@${label}\nM=M-D\n`,
-      };
+      formula.forwardAddress.push(`@${index}`);
+      formula.forwardAddress.push("D=A");
+      formula.forwardAddress.push(`@${label}`);
+      formula.forwardAddress.push("M=M+D");
+
+      formula.moveTargetAddress.push("A=M");
+
+      formula.backAddress.push(`@${index}`);
+      formula.backAddress.push("D=A");
+      formula.backAddress.push(`@${label}`);
+      formula.backAddress.push("M=M-D");
   }
-  return `${formula.forwardAddress}${CodeWriter.POP_STACK}@${label}\n${formula.moveTargetAddress}M=D\n${formula.backAddress}`;
+  const results = [];
+  results.push(...formula.forwardAddress);
+  results.push(...POP_STACK);
+  results.push(`@${label}`);
+  results.push(...formula.moveTargetAddress);
+  results.push("M=D");
+  results.push(...formula.backAddress);
+  return results;
 }
 
 function createLabel(
@@ -155,9 +267,9 @@ function createLabel(
     case "that":
       return "THAT";
     case "pointer":
-      return `R${CodeWriter.POINTER_BASE + input.index}`;
+      return `R${POINTER_BASE + input.index}`;
     case "temp":
-      return `R${CodeWriter.TEMP_BASE + input.index}`;
+      return `R${TEMP_BASE + input.index}`;
     case "static":
       return `${fileName}.${input.index}`;
     default:
