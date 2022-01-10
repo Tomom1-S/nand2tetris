@@ -34,9 +34,11 @@ export type CommandType =
     }
   | {
       name: "C_FUNCTION";
+      command: "function";
     }
   | {
       name: "C_RETURN";
+      command: "return";
     }
   | {
       name: "C_CALL";

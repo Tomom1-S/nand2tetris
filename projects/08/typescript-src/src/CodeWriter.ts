@@ -11,6 +11,7 @@ export class CodeWriter {
   fileName: string;
   saveName: string;
   labelCount = 0;
+  argNum = 0;
   results: string[] = [];
 
   constructor(filepath: string) {
@@ -174,9 +175,59 @@ export class CodeWriter {
 
   writeCall(functionName: string, numArgs: number): void {}
 
-  writeReturn(): void {}
+  writeReturn(): void {
+    // FRAMEを一時保存
+    this.results.push("@LCL");
+    this.results.push("D=M");
+    this.results.push("@frame");
+    this.results.push("M=D");
+    // 関数の戻り値を退避
+    this.results.push(...POP_STACK);
+    this.results.push("@result");
+    this.results.push("M=D");
+    // ポインタを戻す
+    this.results.push(...this.resetPointer("THAT"));
+    this.results.push(...this.resetPointer("THIS"));
+    this.results.push(...this.resetPointer("ARG"));
+    this.results.push(...this.resetPointer("LCL"));
+    // リターンアドレスを取得
+    this.results.push(...POP_STACK);
+    this.results.push("@ret");
+    this.results.push("M=D");
+    // 呼び出し側がプッシュした引数を除去
+    for (let i = 0; i < this.argNum; i++) {
+      this.results.push(...POP_STACK);
+    }
+    // 戻り値をスタックにおく
+    this.results.push("@result");
+    this.results.push("D=M");
+    this.results.push(...PUSH_STACK);
+    // リターンアドレスに移動
+    this.results.push("@ret");
+    this.results.push("A=M");
+    this.results.push("0;JMP");
+  }
 
-  writeFunction(functionName: string, numLocals: number): void {}
+  private resetPointer(name: string): string[] {
+    const results = [] as string[];
+    results.push(...POP_STACK);
+    results.push(`@${name}`);
+    results.push("M=D");
+    return results;
+  }
+
+  writeFunction(functionName: string, numLocals: number): void {
+    this.argNum = numLocals;
+
+    this.results.push(`(${functionName})`);
+    for (let i = 0; i < numLocals; i++) {
+      this.results.push("@0");
+      this.results.push("D=A");
+      this.results.push(...PUSH_STACK);
+      const initLocal = convertPop("local", i, this.fileName);
+      this.results.push(...initLocal);
+    }
+  }
 
   close(): void {
     // 最後に無限ループを入れてHackプログラムを終了させる

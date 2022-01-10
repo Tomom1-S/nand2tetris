@@ -36,8 +36,6 @@ for (const target of targets) {
     parser.advance();
     const commandType = parser.commandType();
     switch (commandType.name) {
-      case "C_RETURN":
-        break;
       case "C_ARITHMETIC":
         writer.writeArithmetic(parser.arg1());
         break;
@@ -54,8 +52,13 @@ for (const target of targets) {
       case "C_IF":
         writer.writeIf(parser.arg1());
         break;
+      case "C_FUNCTION":
+        writer.writeFunction(parser.arg1(), parser.arg2());
+        break;
+      case "C_RETURN":
+        writer.writeReturn();
+        break;
       default:
-        // プログラムフロー、関数呼び出しのコマンドについてはこの演習では扱わない
         break;
     }
   }
