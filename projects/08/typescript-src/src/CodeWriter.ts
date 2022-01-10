@@ -14,12 +14,12 @@ export class CodeWriter {
   results: string[] = [];
 
   constructor(filepath: string) {
-    this.saveName = `${filepath.substr(0, filepath.lastIndexOf("."))}.asm`;
+    const parsedPath = path.parse(filepath);
+    const saveDir = fs.lstatSync(filepath).isFile() ? parsedPath.dir : `${parsedPath.dir}/${parsedPath.name}`;
+    this.saveName = `${saveDir}/${parsedPath.name}.asm`
   }
 
   setFileName(fileName: string): void {
-    // TODO: CodeWriterモジュールに新しいVMファイルの変換が開始したことを知らせる
-    // ↑どういう意味？？？
     this.fileName = path.parse(fileName).name;
   }
 
@@ -143,8 +143,6 @@ export class CodeWriter {
   }
 
   writePushPop(command: string, segment: string, index: number): void {
-    // TODO: C_PUSHまたはC_POPコマンドをアセンブリコードに変換し、それを書き込む
-    // 4. 最後に、static セグメントに対応する。
     let asm;
     switch (command) {
       case "push":
@@ -158,6 +156,27 @@ export class CodeWriter {
     }
     this.results.push(...asm);
   }
+
+  writeLabel(label: string): void {
+    this.results.push(`(${label})`);
+  }
+
+  writeGoto(label: string): void {
+    this.results.push(`@${label}`);
+    this.results.push("0;JMP");
+  }
+
+  writeIf(label: string): void {
+    this.results.push(...POP_STACK);
+    this.results.push(`@${label}`);
+    this.results.push("D;JNE");
+  }
+
+  writeCall(functionName: string, numArgs: number): void {}
+
+  writeReturn(): void {}
+
+  writeFunction(functionName: string, numLocals: number): void {}
 
   close(): void {
     // 最後に無限ループを入れてHackプログラムを終了させる

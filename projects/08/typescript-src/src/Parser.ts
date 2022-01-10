@@ -38,16 +38,17 @@ export class Parser {
    * @returns CommandType
    */
   commandType(): CommandType {
+    let name;
     switch (this.command[0]) {
       case "push":
         return {
           name: "C_PUSH",
-          command: "push",
+          command: this.command[0],
         };
       case "pop":
         return {
           name: "C_POP",
-          command: "pop",
+          command: this.command[0],
         };
       case "add":
       case "sub":
@@ -62,8 +63,24 @@ export class Parser {
           name: "C_ARITHMETIC",
           command: this.command[0],
         };
+      case "label":
+        return {
+          name: "C_LABEL",
+          command: this.command[0],
+        };
+      case "goto":
+        return {
+          name: "C_GOTO",
+          command: this.command[0],
+        };
+      case "if-goto":
+        return {
+          name: "C_IF",
+          command: this.command[0],
+        };
+      default:
+        throw new Error("Not assigned to any CommandType");
     }
-    throw new Error("Not assigned to any CommandType");
   }
 
   /**

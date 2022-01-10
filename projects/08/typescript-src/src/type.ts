@@ -22,12 +22,15 @@ export type CommandType =
     }
   | {
       name: "C_LABEL";
+      command: "label";
     }
   | {
       name: "C_GOTO";
+      command: "goto";
     }
   | {
       name: "C_IF";
+      command: "if-goto"
     }
   | {
       name: "C_FUNCTION";

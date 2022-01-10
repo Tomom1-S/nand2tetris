@@ -5,10 +5,12 @@ import { Parser } from "./Parser";
 const targetPath = process.argv.slice(2)[0];
 
 let targets: string[] = [];
+let outputName;
 if (fs.lstatSync(targetPath).isFile()) {
   if (!isVmFile(targetPath)) {
     throw new Error("targetPath is invalid");
   }
+  outputName = "hoge";
   targets = [targetPath];
 } else {
   const files = fs.readdirSync(targetPath);
@@ -26,11 +28,12 @@ if (targets === undefined || targets.length == 0) {
   process.exit();
 }
 
+const writer = new CodeWriter(targetPath);
+
 for (const target of targets) {
-  const parser = new Parser(target);
-  const writer = new CodeWriter(target);
   writer.setFileName(target);
 
+  const parser = new Parser(target);
   while (parser.hasMoreCommands()) {
     parser.advance();
     const commandType = parser.commandType();
@@ -44,15 +47,24 @@ for (const target of targets) {
       case "C_POP":
         writer.writePushPop(commandType.command, parser.arg1(), parser.arg2());
         break;
+      case "C_LABEL":
+        writer.writeLabel(parser.arg1());
+        break;
+      case "C_GOTO":
+        writer.writeGoto(parser.arg1());
+        break;
+      case "C_IF":
+        writer.writeIf(parser.arg1());
+        break;
       default:
         // プログラムフロー、関数呼び出しのコマンドについてはこの演習では扱わない
         break;
     }
   }
-
-  writer.close();
-  console.log(`Finish VM transfer of ${target}`);
 }
+
+writer.close();
+console.log(`Finish VM transfer of ${targetPath}`);
 
 function isVmFile(path: string): boolean {
   return path.split(".").pop() === "vm";
