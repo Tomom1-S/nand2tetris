@@ -5,12 +5,10 @@ import { Parser } from "./Parser";
 const targetPath = process.argv.slice(2)[0];
 
 let targets: string[] = [];
-let outputName;
 if (fs.lstatSync(targetPath).isFile()) {
   if (!isVmFile(targetPath)) {
     throw new Error("targetPath is invalid");
   }
-  outputName = "hoge";
   targets = [targetPath];
 } else {
   const files = fs.readdirSync(targetPath);

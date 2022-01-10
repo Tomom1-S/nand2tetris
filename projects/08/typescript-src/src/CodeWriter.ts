@@ -16,7 +16,7 @@ export class CodeWriter {
   constructor(filepath: string) {
     const parsedPath = path.parse(filepath);
     const saveDir = fs.lstatSync(filepath).isFile() ? parsedPath.dir : `${parsedPath.dir}/${parsedPath.name}`;
-    this.saveName = `${saveDir}/${parsedPath.name}.asm`
+    this.saveName = `${saveDir}/${parsedPath.name}.asm`;
   }
 
   setFileName(fileName: string): void {

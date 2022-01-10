@@ -38,7 +38,6 @@ export class Parser {
    * @returns CommandType
    */
   commandType(): CommandType {
-    let name;
     switch (this.command[0]) {
       case "push":
         return {
@@ -78,9 +77,8 @@ export class Parser {
           name: "C_IF",
           command: this.command[0],
         };
-      default:
-        throw new Error("Not assigned to any CommandType");
     }
+    throw new Error("Not assigned to any CommandType");
   }
 
   /**
