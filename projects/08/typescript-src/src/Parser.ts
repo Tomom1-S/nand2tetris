@@ -87,6 +87,11 @@ export class Parser {
           name: "C_RETURN",
           command: this.command[0],
         };
+      case "call":
+        return {
+          name: "C_CALL",
+          command: this.command[0],
+        }
     }
     throw new Error("Not assigned to any CommandType");
   }

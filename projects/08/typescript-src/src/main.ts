@@ -27,6 +27,7 @@ if (targets === undefined || targets.length == 0) {
 }
 
 const writer = new CodeWriter(targetPath);
+writer.writeInit();
 
 for (const target of targets) {
   writer.setFileName(target);
@@ -58,6 +59,8 @@ for (const target of targets) {
       case "C_RETURN":
         writer.writeReturn();
         break;
+      case "C_CALL":
+        writer.writeCall(parser.arg1(), parser.arg2());
       default:
         break;
     }

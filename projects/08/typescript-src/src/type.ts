@@ -42,4 +42,5 @@ export type CommandType =
     }
   | {
       name: "C_CALL";
+      command: "call";
     };
