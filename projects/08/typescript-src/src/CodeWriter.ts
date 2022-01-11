@@ -274,11 +274,9 @@ export class CodeWriter {
 
     this.results.push(`(${functionName})`);
     for (let i = 0; i < numLocals; i++) {
-      this.results.push(`@${i}`);
+      this.results.push("@0");
       this.results.push("D=A");
-      this.results.push("@LCL")
-      this.results.push("A=A+D");
-      this.results.push("M=0");
+      this.results.push(...PUSH_STACK);
     }
   }
 
