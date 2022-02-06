@@ -42,12 +42,12 @@ export class Parser {
       case "push":
         return {
           name: "C_PUSH",
-          command: "push",
+          command: this.command[0],
         };
       case "pop":
         return {
           name: "C_POP",
-          command: "pop",
+          command: this.command[0],
         };
       case "add":
       case "sub":
@@ -62,6 +62,36 @@ export class Parser {
           name: "C_ARITHMETIC",
           command: this.command[0],
         };
+      case "label":
+        return {
+          name: "C_LABEL",
+          command: this.command[0],
+        };
+      case "goto":
+        return {
+          name: "C_GOTO",
+          command: this.command[0],
+        };
+      case "if-goto":
+        return {
+          name: "C_IF",
+          command: this.command[0],
+        };
+      case "function":
+        return {
+          name: "C_FUNCTION",
+          command: this.command[0],
+        };
+      case "return":
+        return {
+          name: "C_RETURN",
+          command: this.command[0],
+        };
+      case "call":
+        return {
+          name: "C_CALL",
+          command: this.command[0],
+        }
     }
     throw new Error("Not assigned to any CommandType");
   }

@@ -27,6 +27,7 @@ if (targets === undefined || targets.length == 0) {
 }
 
 const writer = new CodeWriter(targetPath);
+writer.writeInit();
 
 for (const target of targets) {
   writer.setFileName(target);
@@ -36,8 +37,6 @@ for (const target of targets) {
     parser.advance();
     const commandType = parser.commandType();
     switch (commandType.name) {
-      case "C_RETURN":
-        break;
       case "C_ARITHMETIC":
         writer.writeArithmetic(parser.arg1());
         break;
@@ -45,8 +44,24 @@ for (const target of targets) {
       case "C_POP":
         writer.writePushPop(commandType.command, parser.arg1(), parser.arg2());
         break;
+      case "C_LABEL":
+        writer.writeLabel(parser.arg1());
+        break;
+      case "C_GOTO":
+        writer.writeGoto(parser.arg1());
+        break;
+      case "C_IF":
+        writer.writeIf(parser.arg1());
+        break;
+      case "C_FUNCTION":
+        writer.writeFunction(parser.arg1(), parser.arg2());
+        break;
+      case "C_RETURN":
+        writer.writeReturn();
+        break;
+      case "C_CALL":
+        writer.writeCall(parser.arg1(), parser.arg2());
       default:
-        // プログラムフロー、関数呼び出しのコマンドについてはこの演習では扱わない
         break;
     }
   }
