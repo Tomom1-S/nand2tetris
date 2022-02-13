@@ -17,6 +17,8 @@ const engine = new CompilationEngine(
 );
 while (tokenizer.hasMoreTokens()) {
   // TODO 実装
+  tokenizer.advance();
+  tokenizer.tokenType();
 }
 
 engine.close();

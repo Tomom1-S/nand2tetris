@@ -1,40 +1,107 @@
-import { KeyWord, TokenType } from "./type";
+import { keyWords, symbols, TokenType } from "./type";
 import * as fs from "fs";
 
 export class JackTokenizer {
   data: string[];
+  index = 0;
+  token: string;
 
   constructor(path: string) {
-    // TODO 入力ファイル/ストリームを開き、トークン化を行う準備をする
     const file = fs.readFileSync(path, { encoding: "utf8" });
     this.data = file
       .toString()
       .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "") // コメントを削除
-      .split(/\r?\n/)
-      .filter((line) => !/^\s+$/.test(line)) // スペースだけの行を除去
-      .filter((line) => line); // 空行を除去
+      .split(/([{}()[\].,;+\-*/&|<>=~]|".*?"|\s+)/g) // トークン単位で分割
+      .filter((line) => !line.match(/^\s+$/)) // スペースだけの行を除去
+      .filter((line) => line) // 空行を除去
+      .map((element) => {
+        return element.replace(/"/g, "");
+      });
+    console.log(this.data);
   }
 
   hasMoreTokens(): boolean {
-    // TODO 入力にまだトークンは存在するか?
-    return false;
+    if (!this.data) {
+      return false;
+    }
+    return this.index < this.data.length;
   }
 
   advance(): void {
-    // TODO 入力から次のトークンを取得し、それを現在のトークン(現トークン)とする。
-    // このルーチンは、hasMoreTokens()がtrueの場合のみ呼び出すことができる。
-    // また、最初は現トークンは設定されていない
+    if (!this.hasMoreTokens()) {
+      throw Error(
+        "JackTokenizer#advance shouldn't be called when hasMoreTokens returns false!"
+      );
+    }
+    this.token = this.data[this.index++];
   }
 
   tokenType(): TokenType {
-    // TODO 現トークンの種類を返す
-    return { name: "KEYWORD" };
+    if (keyWords.includes(this.token)) {
+      return { name: "KEYWORD", tag: "keyword" };
+    }
+    if (symbols.includes(this.token)) {
+      return { name: "SYMBOL", tag: "symbol" };
+    }
+    if (!isNaN(Number(this.token))) {
+      return { name: "INT_CONST", tag: "integerConstant" };
+    }
+    if (this.token.match(/[A-z_][A-z0-9_]*$/)) {
+      return { name: "IDENTIFIER", tag: "identifier" };
+    }
+    if (!this.token.includes('"') && !this.token.match(/\r?\n/)) {
+      return { name: "STRING_CONST", tag: "stringConstant" };
+    }
+    throw Error(`Invalid token type: ${this.token}`);
   }
 
-  keyWord(): KeyWord {
-    // TODO 現トークンのキーワードを返す。
-    // このルーチンは、tokenType()がKEYWORDの場合のみ呼び出すことができる
-    return { name: "CLASS" };
+  keyWord(): { name: string; tag: string } {
+    if (this.tokenType() !== { name: "KEYWORD", tag: "keyword" }) {
+      throw Error(
+        `Invalid token type for JackTokenizer#keyWord(): ${this.tokenType()}`
+      );
+    }
+    let tag;
+    switch (this.token) {
+      case "class":
+      case "constructor":
+      case "function":
+      case "method":
+      case "field":
+      case "static":
+      case "int":
+      case "char":
+      case "boolean":
+      case "void":
+      case "true":
+      case "false":
+      case "null":
+      case "this":
+      case "else":
+        tag = this.token;
+        break;
+      case "var":
+        tag = "varDec";
+        break;
+      case "let":
+        tag = "letStatement";
+        break;
+      case "do":
+        tag = "doStatement";
+        break;
+      case "if":
+        tag = "ifStatement";
+        break;
+      case "while":
+        tag = "whileStatement";
+        break;
+      case "return":
+        tag = "returnStatement";
+        break;
+      default:
+        throw Error(`Invalid keyword: ${tag}`);
+    }
+    return { name: tag.toUpperCase(), tag };
   }
 
   symbol(): string {
