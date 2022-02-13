@@ -1,8 +1,18 @@
 import { KeyWord, TokenType } from "./type";
+import * as fs from "fs";
 
 export class JackTokenizer {
+  data: string[];
+
   constructor(path: string) {
     // TODO 入力ファイル/ストリームを開き、トークン化を行う準備をする
+    const file = fs.readFileSync(path, { encoding: "utf8" });
+    this.data = file
+      .toString()
+      .replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, "") // コメントを削除
+      .split(/\r?\n/)
+      .filter((line) => !/^\s+$/.test(line)) // スペースだけの行を除去
+      .filter((line) => line); // 空行を除去
   }
 
   hasMoreTokens(): boolean {

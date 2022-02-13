@@ -1,7 +1,27 @@
+import * as fs from "fs";
+
+const SEPARATOR = "\n";
 export class CompilationEngine {
+  inputPath: string;
+  outputPath: string;
+  results: string[] = [];
+
   constructor(inputPath: string, outputPath: string) {
     // TODO 与えられた入力と出力に対して 新しいコンパイルエンジンを生成する。
     // 次に呼ぶルーチンはcompileClass()でなければならない
+    this.inputPath = inputPath;
+    this.outputPath = outputPath;
+    this.results.push("<tokens>");
+  }
+
+  close() {
+    this.results.push("</tokens>");
+    fs.writeFile(this.outputPath, this.results.join(SEPARATOR), (err) => {
+      if (err) {
+        throw err;
+      }
+    });
+    console.log(`SUCCESS: ${this.inputPath} -> ${this.outputPath}`);
   }
 
   compileClass(): void {
