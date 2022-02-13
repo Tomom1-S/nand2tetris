@@ -14,8 +14,10 @@ export class CompilationEngine {
     this.results.push("<tokens>");
   }
 
-  close() {
+  close(results: string[]) {
+    this.results.push(...results);
     this.results.push("</tokens>");
+    this.results.push("");
     fs.writeFile(this.outputPath, this.results.join(SEPARATOR), (err) => {
       if (err) {
         throw err;

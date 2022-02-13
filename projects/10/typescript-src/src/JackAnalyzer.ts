@@ -13,12 +13,32 @@ const tokenizer = new JackTokenizer(target);
 const parsedTarget = path.parse(target);
 const engine = new CompilationEngine(
   target,
-  `${parsedTarget.dir}/${parsedTarget.name}.xml`
+  `${parsedTarget.dir}/${parsedTarget.name}T.xml`
 );
+
+const results: string[] = [];
 while (tokenizer.hasMoreTokens()) {
-  // TODO 実装
   tokenizer.advance();
-  tokenizer.tokenType();
+  const type = tokenizer.tokenType();
+  let value;
+  switch (type.name) {
+    case "KEYWORD":
+      value = tokenizer.keyWord();
+      break;
+    case "SYMBOL":
+      value = tokenizer.symbol();
+      break;
+    case "IDENTIFIER":
+      value = tokenizer.identifier();
+      break;
+    case "INT_CONST":
+      value = tokenizer.intVal();
+      break;
+    case "STRING_CONST":
+      value = tokenizer.stringVal();
+      break;
+  }
+  results.push(`<${type.tag}> ${value} </${type.tag}>`);
 }
 
-engine.close();
+engine.close(results);
