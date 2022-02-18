@@ -80,8 +80,9 @@ export class JackTokenizer {
         return "&gt;";
       case "&":
         return "&amp;";
+      default:
+        return this.token;
     }
-    return this.token;
   }
 
   identifier(): string {

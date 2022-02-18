@@ -1,33 +1,57 @@
 import * as fs from "fs";
+import { JackTokenizer } from "./JackTokenizer";
 
 const SEPARATOR = "\n";
 export class CompilationEngine {
-  inputPath: string;
+  tokenizer: JackTokenizer;
   outputPath: string;
   results: string[] = [];
 
-  constructor(inputPath: string, outputPath: string) {
+  constructor(tokenizer: JackTokenizer, outputPath: string) {
     // TODO 与えられた入力と出力に対して 新しいコンパイルエンジンを生成する。
     // 次に呼ぶルーチンはcompileClass()でなければならない
-    this.inputPath = inputPath;
+    this.tokenizer = tokenizer;
     this.outputPath = outputPath;
-    this.results.push("<tokens>");
+    this.compileClass();
   }
 
-  close(results: string[]) {
-    this.results.push(...results);
-    this.results.push("</tokens>");
+  compileClass(): void {
+    // TODO クラスをコンパイルする
+    this.results.push("<class>");
+
+    while (this.tokenizer.hasMoreTokens()) {
+      this.tokenizer.advance();
+      const type = this.tokenizer.tokenType();
+      let value;
+      switch (type.name) {
+        case "KEYWORD":
+          value = this.tokenizer.keyWord();
+          break;
+        case "SYMBOL":
+          value = this.tokenizer.symbol();
+          break;
+        case "IDENTIFIER":
+          value = this.tokenizer.identifier();
+          break;
+        case "INT_CONST":
+          value = this.tokenizer.intVal();
+          break;
+        case "STRING_CONST":
+          value = this.tokenizer.stringVal();
+          break;
+      }
+      this.results.push(`<${type.tag}> ${value} </${type.tag}>`);
+    }
+
+    this.results.push("</class>");
     this.results.push("");
+
     fs.writeFile(this.outputPath, this.results.join(SEPARATOR), (err) => {
       if (err) {
         throw err;
       }
     });
-    console.log(`SUCCESS: ${this.inputPath} -> ${this.outputPath}`);
-  }
-
-  compileClass(): void {
-    // TODO クラスをコンパイルする
+    console.log(`Compiled: ${this.outputPath}`);
   }
 
   compileClassVarDec(): void {
@@ -81,6 +105,7 @@ export class CompilationEngine {
     // そのためには、ひとつ先のトークンを読み込み、そのトークンが“[”か“(”か“.”のどれに該当するかを調べれば、現トークンの種類を決定することができる。
     // 他のトークンの場合は現トークンに含まないので、先読みを行う必要はない
   }
+
   compileExpressionList(): void {
     // TODO コンマで分離された式のリスト(空の可能性もある)をコンパイルする
   }
