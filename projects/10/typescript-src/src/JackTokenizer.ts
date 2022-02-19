@@ -33,6 +33,16 @@ export class JackTokenizer {
       );
     }
     this.token = this.data[this.index++];
+    console.log(`[L${this.index}] ${this.token}`);
+  }
+
+  nextToken(): string {
+    if (this.index >= this.data.length) {
+      throw Error(
+        "JackTokenizer#nextToken shouldn't be called when index >= data.length!"
+      );
+    }
+    return this.data[this.index];
   }
 
   tokenType(): TokenType {
