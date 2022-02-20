@@ -7,11 +7,11 @@ export class Indentation {
     return SPACE.repeat(this.level * ONE_LEVEL);
   }
 
-  indent(): void {
+  async indent(): Promise<void> {
     this.level++;
   }
 
-  outdent(): void {
+  async outdent(): Promise<void> {
     this.level--;
   }
 }

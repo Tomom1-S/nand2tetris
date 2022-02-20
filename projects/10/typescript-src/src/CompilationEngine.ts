@@ -16,11 +16,12 @@ export class CompilationEngine {
     this.outputPath = outputPath;
   }
 
-  private pushResults(value: string) {
+  private async pushResults(value: string): Promise<void> {
     this.results.push(`${this.indentation.spaces()}${value}`);
+    console.log(`${this.indentation.spaces()}${value}`);
   }
 
-  private popResults(): string {
+  private async popResults(): Promise<string> {
     const last = this.results.pop();
     const regexp = /<.*/g;
     const match = last?.match(regexp);
@@ -30,70 +31,73 @@ export class CompilationEngine {
     return match[0];
   }
 
-  private startBlock(tag: string) {
-    this.pushResults(`<${tag}>`);
-    this.indentation.indent();
+  private async startBlock(tag: string): Promise<void> {
+    await this.pushResults(`<${tag}>`);
+    await this.indentation.indent();
   }
 
-  private endBlock(tag: string) {
-    this.indentation.outdent();
-    this.pushResults(`</${tag}>`);
+  private async endBlock(tag: string): Promise<void> {
+    await this.indentation.outdent();
+    await this.pushResults(`</${tag}>`);
   }
 
-  convertToken(): void {
-    this.tokenizer.advance();
-    const type = this.tokenizer.tokenType();
+  async convertToken(): Promise<void> {
+    if (!(await this.tokenizer.hasMoreTokens())) {
+      return;
+    }
+    await this.tokenizer.advance();
+    const type = await this.tokenizer.tokenType();
     let value;
     switch (type.name) {
       case "KEYWORD":
-        value = this.tokenizer.keyWord();
+        value = await this.tokenizer.keyWord();
         switch (value) {
           case "constructor":
           case "function":
           case "method":
-            this.compileSubroutine();
+            await this.compileSubroutine();
             return;
           case "field":
           case "static":
-            this.compileClassVarDec();
+            await this.compileClassVarDec();
             return;
           case "var":
-            this.compileVarDec();
+            await this.compileVarDec();
             return;
           case "do":
           case "let":
           case "while":
           case "return":
           case "if":
-            this.compileStatements();
+            await this.compileStatements();
             return;
         }
         break;
       case "SYMBOL":
-        value = this.tokenizer.symbol();
+        value = await this.tokenizer.symbol();
         break;
       case "IDENTIFIER":
-        value = this.tokenizer.identifier();
+        value = await this.tokenizer.identifier();
         break;
       case "INT_CONST":
-        value = this.tokenizer.intVal();
+        value = await this.tokenizer.intVal();
         break;
       case "STRING_CONST":
-        value = this.tokenizer.stringVal();
+        value = await this.tokenizer.stringVal();
         break;
     }
-    this.pushResults(`<${type.tag}> ${value} </${type.tag}>`);
+    await this.pushResults(`<${type.tag}> ${value} </${type.tag}>`);
   }
 
-  compileClass(): void {
+  async compileClass(): Promise<void> {
     const tag = "class";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    while (this.tokenizer.hasMoreTokens()) {
-      this.convertToken();
+    while (await this.tokenizer.hasMoreTokens()) {
+      await this.convertToken();
     }
-    this.endBlock(tag);
-    this.pushResults("");
+    await this.endBlock(tag);
+    await this.pushResults("");
 
     fs.writeFile(this.outputPath, this.results.join(SEPARATOR), (err) => {
       if (err) {
@@ -103,333 +107,362 @@ export class CompilationEngine {
     console.log(`Compiled: ${this.outputPath}`);
   }
 
-  compileClassVarDec(): void {
+  async compileClassVarDec(): Promise<void> {
     const tag = "classVarDec";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
     while (
-      !(this.tokenizer.tokenType().name === "SYMBOL") ||
-      !(this.tokenizer.symbol() === ";")
+      (await this.tokenizer.hasMoreTokens()) &&
+      (!((await this.tokenizer.tokenType()).name === "SYMBOL") ||
+        !((await this.tokenizer.symbol()) === ";"))
     ) {
-      this.convertToken();
+      await this.convertToken();
     }
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileSubroutine(): void {
+  async compileSubroutine(): Promise<void> {
     // TODO メソッド、ファンクション、コンストラクタをコンパイルする
     const tag = "subroutineDec";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
     while (
-      !(this.tokenizer.tokenType().name === "SYMBOL") ||
-      !(this.tokenizer.symbol() === "}")
+      (await this.tokenizer.hasMoreTokens()) &&
+      (!((await this.tokenizer.tokenType()).name === "SYMBOL") ||
+        !((await this.tokenizer.symbol()) === "}"))
     ) {
-      this.convertToken();
       if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "("
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "("
       ) {
-        this.compileParameterList();
+        await this.compileParameterList();
       } else if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "{"
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "{"
       ) {
-        const last = this.popResults();
-        this.startBlock("subroutineBody");
+        const last = await this.popResults();
+        await this.startBlock("subroutineBody");
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        this.pushResults(last!);
+        await this.pushResults(last!);
+        await this.convertToken();
+      } else {
+        await this.convertToken();
       }
     }
-    this.endBlock("subroutineBody");
-    this.endBlock(tag);
+    await this.endBlock("subroutineBody");
+
+    await this.endBlock(tag);
   }
 
-  compileParameterList(): void {
-    // TODO パラメータのリスト(空の可能性もある)をコンパイルする。カッコ“()”は含まない
+  async compileParameterList(): Promise<void> {
     const tag = "parameterList";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
     while (
-      !(this.tokenizer.tokenType().name === "SYMBOL") ||
-      !(this.tokenizer.symbol() === ")")
+      (await this.tokenizer.hasMoreTokens()) &&
+      !(
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === ")"
+      )
     ) {
-      this.convertToken();
+      await this.convertToken();
     }
-    const last = this.popResults();
-    this.endBlock(tag);
+    const last = await this.popResults();
+    await this.endBlock(tag);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.pushResults(last!);
+    await this.pushResults(last!);
   }
 
-  compileVarDec(): void {
+  async compileVarDec(): Promise<void> {
     const tag = "varDec";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
     while (
-      !(this.tokenizer.tokenType().name === "SYMBOL") ||
-      !(this.tokenizer.symbol() === ";")
+      (await this.tokenizer.hasMoreTokens()) &&
+      (!((await this.tokenizer.tokenType()).name === "SYMBOL") ||
+        !((await this.tokenizer.symbol()) === ";"))
     ) {
-      this.convertToken();
+      await this.convertToken();
     }
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileStatements(): void {
-    if (this.tokenizer.tokenType().name !== "KEYWORD") {
-      return;
+  async compileStatements(): Promise<void> {
+    const tag = "statements";
+    await this.startBlock(tag);
+
+    if (
+      (await this.tokenizer.hasMoreTokens()) &&
+      (await this.tokenizer.tokenType()).name !== "KEYWORD"
+    ) {
+      await this.tokenizer.advance();
     }
 
-    const tag = "statements";
-    this.startBlock(tag);
-
-    let nextToken = this.tokenizer.keyWord();
+    let nextToken = await this.tokenizer.keyWord();
     while (["do", "let", "while", "return", "if"].includes(nextToken)) {
       switch (nextToken) {
         case "do":
-          this.compileDo();
+          await this.compileDo();
           break;
         case "let":
-          this.compileLet();
+          await this.compileLet();
           break;
         case "while":
-          this.compileWhile();
+          await this.compileWhile();
           break;
         case "return":
-          this.compileReturn();
+          await this.compileReturn();
           break;
         case "if":
-          this.compileIf();
+          await this.compileIf();
           break;
       }
-      nextToken = this.tokenizer.nextToken();
+      nextToken = await this.tokenizer.nextToken();
     }
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileDo(): void {
+  async compileDo(): Promise<void> {
     const tag = "doStatement";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    if (this.tokenizer.tokenType().name !== "KEYWORD") {
-      this.tokenizer.advance();
+    while (
+      (await this.tokenizer.hasMoreTokens()) &&
+      (await this.tokenizer.tokenType()).name !== "KEYWORD"
+    ) {
+      await this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
     while (
-      !(this.tokenizer.tokenType().name === "SYMBOL") ||
-      !(this.tokenizer.symbol() === ";")
+      (await this.tokenizer.hasMoreTokens()) &&
+      (!((await this.tokenizer.tokenType()).name === "SYMBOL") ||
+        !((await this.tokenizer.symbol()) === ";"))
     ) {
       if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "("
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "("
       ) {
-        this.compileExpressionList();
+        await this.compileExpressionList();
       }
-      this.convertToken();
+      await this.convertToken();
     }
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileLet(): void {
+  async compileLet(): Promise<void> {
     const tag = "letStatement";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    if (this.tokenizer.tokenType().name !== "KEYWORD") {
-      this.tokenizer.advance();
+    if (
+      (await this.tokenizer.hasMoreTokens()) &&
+      (await this.tokenizer.tokenType()).name !== "KEYWORD"
+    ) {
+      await this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
     while (
-      !(this.tokenizer.tokenType().name === "SYMBOL") ||
-      !(this.tokenizer.symbol() === ";")
+      (await this.tokenizer.hasMoreTokens()) &&
+      (!((await this.tokenizer.tokenType()).name === "SYMBOL") ||
+        !((await this.tokenizer.symbol()) === ";"))
     ) {
       if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "="
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "="
       ) {
-        this.compileExpression();
+        await this.compileExpression();
       }
-      this.convertToken();
+      await this.convertToken();
     }
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileWhile(): void {
-    // TODO while 文をコンパイルする
+  async compileWhile(): Promise<void> {
     const tag = "whileStatement";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    if (this.tokenizer.tokenType().name !== "KEYWORD") {
-      this.tokenizer.advance();
+    while (
+      (await this.tokenizer.hasMoreTokens()) &&
+      (await this.tokenizer.tokenType()).name !== "KEYWORD"
+    ) {
+      await this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
 
     while (
-      this.tokenizer.hasMoreTokens() &&
-      !(
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "}"
-      )
+      (await this.tokenizer.hasMoreTokens()) &&
+      ((await this.tokenizer.tokenType()).name !== "SYMBOL" ||
+        (await this.tokenizer.symbol()) !== "}")
     ) {
-      this.convertToken();
+      await this.convertToken();
       if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "("
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "("
       ) {
-        this.compileExpression();
+        await this.compileExpression();
       } else if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "{"
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "{"
       ) {
-        if (this.tokenizer.nextToken() === "}") {
-          const tag = "statements";
-          this.startBlock(tag);
-          this.endBlock(tag);
-          this.convertToken();
+        if ((await this.tokenizer.nextToken()) === "}") {
+          await this.convertToken();
+          await this.endBlock(tag);
           return;
         }
-        this.compileStatements();
-        this.convertToken();
+        await this.compileStatements();
+        await this.convertToken();
       }
     }
-
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileReturn(): void {
+  async compileReturn(): Promise<void> {
     const tag = "returnStatement";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    if (this.tokenizer.tokenType().name !== "KEYWORD") {
-      this.tokenizer.advance();
+    while (
+      (await this.tokenizer.hasMoreTokens()) &&
+      (await this.tokenizer.tokenType()).name !== "KEYWORD"
+    ) {
+      await this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
 
-    let nextToken = this.tokenizer.nextToken();
+    let nextToken = await this.tokenizer.nextToken();
     while (nextToken !== ";") {
-      this.compileExpression();
-      nextToken = this.tokenizer.nextToken();
+      await this.compileExpression();
+      nextToken = await this.tokenizer.nextToken();
     }
-    this.convertToken();
+    await this.convertToken();
 
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileIf(): void {
+  async compileIf(): Promise<void> {
     const tag = "ifStatement";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    if (this.tokenizer.tokenType().name !== "KEYWORD") {
-      this.tokenizer.advance();
+    while (
+      (await this.tokenizer.hasMoreTokens()) &&
+      (await this.tokenizer.tokenType()).name !== "KEYWORD"
+    ) {
+      await this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
-    this.pushResults(
-      `<${type.tag}> ${this.tokenizer.keyWord()} </${type.tag}>`
+    const type = await this.tokenizer.tokenType();
+    await this.pushResults(
+      `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
 
     let nextToken = "";
     while (
-      this.tokenizer.hasMoreTokens() &&
+      (await this.tokenizer.hasMoreTokens()) &&
       !(
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "}" &&
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "}" &&
         nextToken !== "else"
       )
     ) {
-      this.convertToken();
       if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "("
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "("
       ) {
-        this.compileExpression();
+        await this.compileExpression();
       } else if (
-        this.tokenizer.tokenType().name === "SYMBOL" &&
-        this.tokenizer.symbol() === "{"
+        (await this.tokenizer.tokenType()).name === "SYMBOL" &&
+        (await this.tokenizer.symbol()) === "{"
       ) {
-        if (this.tokenizer.nextToken() === "}") {
-          const tag = "statements";
-          this.startBlock(tag);
-          this.endBlock(tag);
-          this.convertToken();
+        if ((await this.tokenizer.nextToken()) === "}") {
+          await this.convertToken();
+          await this.endBlock(tag);
+          return;
         }
-        this.compileStatements();
+        await this.compileStatements();
+      } else {
+        await this.convertToken();
       }
-      nextToken = this.tokenizer.nextToken();
+      nextToken = await this.tokenizer.nextToken();
     }
-    this.endBlock(tag);
+
+    await this.endBlock(tag);
   }
 
-  compileExpression(): void {
+  async compileExpression(): Promise<void> {
     const tag = "expression";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    this.compileTerm();
+    await this.compileTerm();
 
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 
-  compileTerm(): void {
+  async compileTerm(): Promise<void> {
     // TODO termをコンパイルする。
     // このルーチンは、やや複雑であり、構文解析のルールには複数の選択肢が存在し、現トークンだけからは決定できない場合がある。
     // 具体的に言うと、もし現トークンが識別子であれば、このルーチンは、それが変数、配列宣言、サブルーチン呼び出しのいずれかを識別しなければならない。
     // そのためには、ひとつ先のトークンを読み込み、そのトークンが“[”か“(”か“.”のどれに該当するかを調べれば、現トークンの種類を決定することができる。
     // 他のトークンの場合は現トークンに含まないので、先読みを行う必要はない
     const tag = "term";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    this.convertToken();
+    let nextToken = await this.tokenizer.nextToken();
+    while (
+      (await this.tokenizer.hasMoreTokens()) &&
+      ![")"].includes(nextToken)
+    ) {
+      await this.convertToken();
+      nextToken = await this.tokenizer.nextToken();
+    }
 
-    this.endBlock(tag);
+    await this.convertToken();
+    await this.endBlock(tag);
   }
 
-  compileExpressionList(): void {
+  async compileExpressionList(): Promise<void> {
     // TODO コンマで分離された式のリスト(空の可能性もある)をコンパイルする
     const tag = "expressionList";
-    this.startBlock(tag);
+    await this.startBlock(tag);
 
-    let nextToken = this.tokenizer.nextToken();
+    let nextToken = await this.tokenizer.nextToken();
     while (
-      this.tokenizer.hasMoreTokens() &&
-      // this.tokenizer.tokenType().name === "SYMBOL" &&
-      // this.tokenizer.symbol() === "," &&
+      (await this.tokenizer.hasMoreTokens()) &&
       ![")"].includes(nextToken)
     ) {
       if (nextToken === ",") {
-        this.convertToken();
+        await this.convertToken();
       } else {
-        this.compileExpression();
+        await this.compileExpression();
       }
-      nextToken = this.tokenizer.nextToken();
+      nextToken = await this.tokenizer.nextToken();
     }
 
-    this.endBlock(tag);
+    await this.endBlock(tag);
   }
 }

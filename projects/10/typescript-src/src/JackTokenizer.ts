@@ -19,15 +19,15 @@ export class JackTokenizer {
       });
   }
 
-  hasMoreTokens(): boolean {
+  async hasMoreTokens(): Promise<boolean> {
     if (!this.data) {
       return false;
     }
     return this.index < this.data.length;
   }
 
-  advance(): void {
-    if (!this.hasMoreTokens()) {
+  async advance(): Promise<void> {
+    if (!(await this.hasMoreTokens())) {
       throw Error(
         "JackTokenizer#advance shouldn't be called when hasMoreTokens returns false!"
       );
@@ -36,16 +36,14 @@ export class JackTokenizer {
     console.log(`[L${this.index}] ${this.token}`);
   }
 
-  nextToken(): string {
+  async nextToken(): Promise<string> {
     if (this.index >= this.data.length) {
-      throw Error(
-        "JackTokenizer#nextToken shouldn't be called when index >= data.length!"
-      );
+      return "";
     }
     return this.data[this.index];
   }
 
-  tokenType(): TokenType {
+  async tokenType(): Promise<TokenType> {
     if (keyWords.includes(this.token)) {
       return { name: "KEYWORD", tag: "keyword" };
     }
@@ -64,22 +62,24 @@ export class JackTokenizer {
     throw Error(`Invalid token type: ${this.token}`);
   }
 
-  keyWord(): string {
-    if (this.tokenType().name !== "KEYWORD") {
+  async keyWord(): Promise<string> {
+    const tokenType = await this.tokenType();
+    if (tokenType.name !== "KEYWORD") {
       throw Error(
         `Invalid token type for JackTokenizer#keyWord(): ${JSON.stringify(
-          this.tokenType()
+          tokenType
         )}`
       );
     }
     return this.token;
   }
 
-  symbol(): string {
-    if (this.tokenType().name !== "SYMBOL") {
+  async symbol(): Promise<string> {
+    const tokenType = await this.tokenType();
+    if (tokenType.name !== "SYMBOL") {
       throw Error(
         `Invalid token type for JackTokenizer#symbol(): ${JSON.stringify(
-          this.tokenType()
+          tokenType
         )}`
       );
     }
@@ -95,33 +95,36 @@ export class JackTokenizer {
     }
   }
 
-  identifier(): string {
-    if (this.tokenType().name !== "IDENTIFIER") {
+  async identifier(): Promise<string> {
+    const tokenType = await this.tokenType();
+    if (tokenType.name !== "IDENTIFIER") {
       throw Error(
         `Invalid token type for JackTokenizer#identifier(): ${JSON.stringify(
-          this.tokenType()
+          tokenType
         )}`
       );
     }
     return this.token;
   }
 
-  intVal(): number {
-    if (this.tokenType().name !== "INT_CONST") {
+  async intVal(): Promise<number> {
+    const tokenType = await this.tokenType();
+    if (tokenType.name !== "INT_CONST") {
       throw Error(
         `Invalid token type for JackTokenizer#intVal():${JSON.stringify(
-          this.tokenType()
+          tokenType
         )}`
       );
     }
     return Number(this.token);
   }
 
-  stringVal(): string {
-    if (this.tokenType().name !== "STRING_CONST") {
+  async stringVal(): Promise<string> {
+    const tokenType = await this.tokenType();
+    if (tokenType.name !== "STRING_CONST") {
       throw Error(
         `Invalid token type for JackTokenizer#stringVal(): ${JSON.stringify(
-          this.tokenType()
+          tokenType
         )}`
       );
     }
