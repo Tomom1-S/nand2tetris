@@ -10,8 +10,6 @@ export class CompilationEngine {
   results: string[] = [];
 
   constructor(tokenizer: JackTokenizer, outputPath: string) {
-    // TODO 与えられた入力と出力に対して 新しいコンパイルエンジンを生成する。
-    // 次に呼ぶルーチンはcompileClass()でなければならない
     this.tokenizer = tokenizer;
     this.outputPath = outputPath;
   }
@@ -126,7 +124,6 @@ export class CompilationEngine {
   }
 
   async compileSubroutine(): Promise<void> {
-    // TODO メソッド、ファンクション、コンストラクタをコンパイルする
     const tag = "subroutineDec";
     await this.startBlock(tag);
 
@@ -210,9 +207,9 @@ export class CompilationEngine {
       await this.tokenizer.advance();
     }
 
-    let nextToken = await this.tokenizer.keyWord();
-    while (["do", "let", "while", "return", "if"].includes(nextToken)) {
-      switch (nextToken) {
+    let currentToken = await this.tokenizer.keyWord();
+    while (["do", "let", "while", "return", "if"].includes(currentToken)) {
+      switch (currentToken) {
         case "do":
           await this.compileDo();
           break;
@@ -229,7 +226,7 @@ export class CompilationEngine {
           await this.compileIf();
           break;
       }
-      nextToken = await this.tokenizer.nextToken();
+      currentToken = await this.tokenizer.currentToken();
     }
     await this.endBlock(tag);
   }
@@ -327,7 +324,7 @@ export class CompilationEngine {
         (await this.tokenizer.tokenType()).name === "SYMBOL" &&
         (await this.tokenizer.symbol()) === "{"
       ) {
-        if ((await this.tokenizer.nextToken()) === "}") {
+        if ((await this.tokenizer.currentToken()) === "}") {
           await this.convertToken();
           await this.endBlock(tag);
           return;
@@ -355,10 +352,10 @@ export class CompilationEngine {
       `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
 
-    let nextToken = await this.tokenizer.nextToken();
-    while (nextToken !== ";") {
+    let currentToken = await this.tokenizer.currentToken();
+    while (currentToken !== ";") {
       await this.compileExpression();
-      nextToken = await this.tokenizer.nextToken();
+      currentToken = await this.tokenizer.currentToken();
     }
     await this.convertToken();
 
@@ -381,7 +378,7 @@ export class CompilationEngine {
       `<${type.tag}> ${await this.tokenizer.keyWord()} </${type.tag}>`
     );
 
-    let nextToken = "";
+    let nextToken = await this.tokenizer.nextToken();
     while (
       (await this.tokenizer.hasMoreTokens()) &&
       !(
@@ -399,10 +396,12 @@ export class CompilationEngine {
         (await this.tokenizer.tokenType()).name === "SYMBOL" &&
         (await this.tokenizer.symbol()) === "{"
       ) {
-        if ((await this.tokenizer.nextToken()) === "}") {
+        if ((await this.tokenizer.currentToken()) === "}") {
+          const t = "statements";
+          await this.startBlock(t);
+          await this.endBlock(t);
           await this.convertToken();
-          await this.endBlock(tag);
-          return;
+          continue;
         }
         await this.compileStatements();
       } else {
@@ -432,35 +431,33 @@ export class CompilationEngine {
     const tag = "term";
     await this.startBlock(tag);
 
-    let nextToken = await this.tokenizer.nextToken();
+    let currentToken = await this.tokenizer.currentToken();
     while (
       (await this.tokenizer.hasMoreTokens()) &&
-      ![")"].includes(nextToken)
+      ![")", "]", ";", ","].includes(currentToken)
     ) {
       await this.convertToken();
-      nextToken = await this.tokenizer.nextToken();
+      currentToken = await this.tokenizer.currentToken();
     }
 
-    await this.convertToken();
     await this.endBlock(tag);
   }
 
   async compileExpressionList(): Promise<void> {
-    // TODO コンマで分離された式のリスト(空の可能性もある)をコンパイルする
     const tag = "expressionList";
     await this.startBlock(tag);
 
-    let nextToken = await this.tokenizer.nextToken();
+    let currentToken = await this.tokenizer.currentToken();
     while (
       (await this.tokenizer.hasMoreTokens()) &&
-      ![")"].includes(nextToken)
+      ![")"].includes(currentToken)
     ) {
-      if (nextToken === ",") {
+      if (currentToken === ",") {
         await this.convertToken();
       } else {
         await this.compileExpression();
       }
-      nextToken = await this.tokenizer.nextToken();
+      currentToken = await this.tokenizer.currentToken();
     }
 
     await this.endBlock(tag);

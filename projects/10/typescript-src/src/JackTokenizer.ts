@@ -36,11 +36,15 @@ export class JackTokenizer {
     console.log(`[L${this.index}] ${this.token}`);
   }
 
+  async currentToken(): Promise<string> {
+    return this.data[this.index];
+  }
+
   async nextToken(): Promise<string> {
     if (this.index >= this.data.length) {
       return "";
     }
-    return this.data[this.index];
+    return this.data[this.index + 1];
   }
 
   async tokenType(): Promise<TokenType> {
