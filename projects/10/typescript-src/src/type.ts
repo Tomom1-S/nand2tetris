@@ -1,3 +1,10 @@
+export type TokenType =
+  | "keyword"
+  | "symbol"
+  | "identifier"
+  | "integerConstant"
+  | "stringConstant";
+
 export const keyWords = [
   "class",
   "constructor",
@@ -44,9 +51,6 @@ export const symbols = [
   "~",
 ];
 
-export type TokenType =
-  | { name: "KEYWORD"; tag: "keyword" }
-  | { name: "SYMBOL"; tag: "symbol" }
-  | { name: "IDENTIFIER"; tag: "identifier" }
-  | { name: "INT_CONST"; tag: "integerConstant" }
-  | { name: "STRING_CONST"; tag: "stringConstant" };
+export const operators = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
+
+export const unaryOperators = ["-", "~"];
