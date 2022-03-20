@@ -18,7 +18,6 @@ export class CompilationEngine {
 
   private async pushResults(value: string): Promise<void> {
     this.results.push(`${this.indentation.spaces()}${value}`);
-    console.log(`${this.indentation.spaces()}${value}`);
   }
 
   private async popResults(): Promise<string> {
