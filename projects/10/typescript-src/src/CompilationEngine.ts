@@ -20,6 +20,7 @@ export class CompilationEngine {
     this.results.push(`${this.indentation.spaces()}${value}`);
   }
 
+  // FIXME: このメソッドを使わなくて済むように直す
   private popResults(): string {
     const last = this.results.pop();
     const regexp = /<.*/g;
