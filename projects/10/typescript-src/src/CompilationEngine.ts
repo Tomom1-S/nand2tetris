@@ -18,7 +18,6 @@ export class CompilationEngine {
 
   private pushResults(value: string): void {
     this.results.push(`${this.indentation.spaces()}${value}`);
-    console.log(`${this.indentation.spaces()}${value}`);
   }
 
   private popResults(): string {
