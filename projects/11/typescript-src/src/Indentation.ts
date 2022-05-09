@@ -1,5 +1,6 @@
 const SPACE = " ";
 const ONE_LEVEL = 2;
+
 export class Indentation {
   level = 0;
 

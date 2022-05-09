@@ -54,3 +54,5 @@ export const symbols = [
 export const operators = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
 
 export const unaryOperators = ["-", "~"];
+
+export type Kind = "STATIC" | "FIELD" | "ARG" | "VAR";

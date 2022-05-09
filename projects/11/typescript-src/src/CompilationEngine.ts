@@ -91,6 +91,9 @@ export class CompilationEngine {
         break;
       case "identifier":
         value = this.tokenizer.identifier();
+        // 識別子のカテゴリ
+        // 識別子は定義されているか or 使用されているか
+        // 識別子の属性、シンボルテーブルの実行番号
         break;
       case "integerConstant":
         value = this.tokenizer.intVal();
