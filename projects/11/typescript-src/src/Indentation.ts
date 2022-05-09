@@ -1,6 +1,5 @@
 const SPACE = " ";
 const ONE_LEVEL = 2;
-
 export class Indentation {
   level = 0;
 
@@ -8,11 +7,11 @@ export class Indentation {
     return SPACE.repeat(this.level * ONE_LEVEL);
   }
 
-  async indent(): Promise<void> {
+  indent(): void {
     this.level++;
   }
 
-  async outdent(): Promise<void> {
+  outdent(): void {
     this.level--;
   }
 }
