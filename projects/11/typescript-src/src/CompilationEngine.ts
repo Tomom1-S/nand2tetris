@@ -93,7 +93,6 @@ export class CompilationEngine {
         }
         if (typeof this.id !== "undefined") {
           this.id.type = value;
-          console.log(`L96: ${JSON.stringify(this.id)}`);
         }
         break;
       case "symbol":
@@ -101,7 +100,6 @@ export class CompilationEngine {
         break;
       case "identifier": {
         value = this.tokenizer.identifier();
-        console.log(`${value}: ${JSON.stringify(this.id)}`);
 
         const cat = this.symbolTable.kindOf(value);
         if (typeof this.id === "undefined" && cat !== "NONE") {
@@ -147,10 +145,6 @@ export class CompilationEngine {
           );
         }
         this.endBlock(type);
-
-        // id の情報が不要になったので id をクリア
-        this.id = undefined;
-        // TODO var int hoge, fuga; の場合どうする？
         return;
       }
       case "integerConstant":
@@ -179,6 +173,9 @@ export class CompilationEngine {
     }
     this.endBlock(tag);
     this.pushResults("");
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
 
     fs.writeFileSync(this.outputPath, this.results.join(SEPARATOR));
     console.log(`Compiled: ${this.outputPath}`);
@@ -213,6 +210,9 @@ export class CompilationEngine {
       this.convertToken();
     }
     this.endBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -255,6 +255,9 @@ export class CompilationEngine {
     }
     this.endBlock("subroutineBody");
     this.endBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -265,6 +268,9 @@ export class CompilationEngine {
   compileParameterList(): void {
     const tag = "parameterList";
     this.startBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -280,6 +286,9 @@ export class CompilationEngine {
     const last = this.popResults();
     this.endBlock(tag);
     this.pushResults(last!);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -311,6 +320,9 @@ export class CompilationEngine {
       this.convertToken();
     }
     this.endBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
