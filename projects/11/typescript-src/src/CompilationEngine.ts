@@ -1,19 +1,25 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as fs from "fs";
 import { Indentation } from "./Indentation";
 import { JackTokenizer } from "./JackTokenizer";
-import { operators, unaryOperators } from "./type";
+import { SymbolTable } from "./SymbolTable";
+import { SymbolKind, operators, unaryOperators, SymbolCategory } from "./type";
 
 const SEPARATOR = "\n";
 
 export class CompilationEngine {
   tokenizer: JackTokenizer;
+  symbolTable: SymbolTable;
   outputPath: string;
   indentation = new Indentation();
   results: string[] = [];
 
+  id: { cat: SymbolCategory; type?: string } | undefined;
+
   constructor(tokenizer: JackTokenizer, outputPath: string) {
     this.tokenizer = tokenizer;
     this.outputPath = outputPath;
+    this.symbolTable = new SymbolTable();
   }
 
   private pushResults(value: string): void {
@@ -85,16 +91,68 @@ export class CompilationEngine {
             this.compileStatements();
             return;
         }
+        if (typeof this.id !== "undefined") {
+          this.id.type = value;
+          console.log(`L96: ${JSON.stringify(this.id)}`);
+        }
         break;
       case "symbol":
         value = this.tokenizer.symbol();
         break;
-      case "identifier":
+      case "identifier": {
         value = this.tokenizer.identifier();
-        // 識別子のカテゴリ
-        // 識別子は定義されているか or 使用されているか
-        // 識別子の属性、シンボルテーブルの実行番号
-        break;
+        console.log(`${value}: ${JSON.stringify(this.id)}`);
+
+        const cat = this.symbolTable.kindOf(value);
+        if (typeof this.id === "undefined" && cat !== "NONE") {
+          console.log("found in table");
+        } else if (typeof this.id === "undefined") {
+          break;
+        } else if (cat === "NONE" && typeof this.id.type === "undefined") {
+          this.id.type = value;
+          break;
+        } else if (
+          cat === "NONE" &&
+          this.id.cat !== "class" &&
+          this.id.cat !== "subroutine"
+        ) {
+          this.symbolTable.define(
+            value,
+            this.id.type!,
+            this.getSymbolKind(this.id.cat!)
+          );
+        }
+
+        this.startBlock(type);
+        this.pushResults(`<name> ${value} </name>`);
+        const symbolKind = this.symbolTable.kindOf(value);
+        // 識別子のカテゴリ(var、argument、static、field、class、subroutine)
+        this.pushResults(
+          `<category> ${
+            this.id ? this.id.cat : symbolKind.toLowerCase()
+          } </category>`
+        );
+        if (symbolKind !== "NONE") {
+          // 識別子の属性
+          this.pushResults(`<kind> ${symbolKind.toLowerCase()} </kind>`);
+          // 識別子は定義されているか or 使用されているか
+          this.pushResults(
+            `<role> ${
+              this.id && this.id?.cat === "var" ? "defined" : "used"
+            } </role>`
+          );
+          // シンボルテーブルの実行番号
+          this.pushResults(
+            `<index> ${this.symbolTable.indexOf(value)} </index>`
+          );
+        }
+        this.endBlock(type);
+
+        // id の情報が不要になったので id をクリア
+        this.id = undefined;
+        // TODO var int hoge, fuga; の場合どうする？
+        return;
+      }
       case "integerConstant":
         value = this.tokenizer.intVal();
         break;
@@ -113,6 +171,8 @@ export class CompilationEngine {
   compileClass(): void {
     const tag = "class";
     this.startBlock(tag);
+
+    this.id = { cat: "class" };
 
     while (this.tokenizer.hasMoreTokens()) {
       this.convertToken();
@@ -133,9 +193,18 @@ export class CompilationEngine {
     const tag = "classVarDec";
     this.startBlock(tag);
 
+    const keyWord = this.tokenizer.keyWord();
+    if (keyWord !== "field" && keyWord !== "static") {
+      throw new Error(`${keyWord}: invalid keyWord`);
+    }
     const type = this.tokenizer.tokenType();
     // <keyword> { static | field } </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    this.pushResults(`<${type}> ${keyWord} </${type}>`);
+
+    this.id = {
+      cat: keyWord,
+    };
+
     while (
       this.tokenizer.hasMoreTokens() &&
       (!(this.tokenizer.tokenType() === "symbol") ||
@@ -152,6 +221,9 @@ export class CompilationEngine {
    * (’constructor’ | ’function’ | ’method’) (’void’ | type) subroutineName ’(’ parameterList ’)’ subroutineBody
    */
   compileSubroutine(): void {
+    this.symbolTable.startSubroutine();
+    this.id = { cat: "subroutine" };
+
     const tag = "subroutineDec";
     this.startBlock(tag);
 
@@ -175,7 +247,6 @@ export class CompilationEngine {
         // { は subroutineBody の要素に入れる
         const last = this.popResults();
         this.startBlock("subroutineBody");
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.pushResults(last!);
         this.convertToken();
       } else {
@@ -202,12 +273,12 @@ export class CompilationEngine {
         this.tokenizer.symbol() === ")"
       )
     ) {
+      this.id = this.id ? this.id : { cat: "argument" };
       this.convertToken();
     }
     // ) は parameterList の要素に入れない
     const last = this.popResults();
     this.endBlock(tag);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     this.pushResults(last!);
   }
 
@@ -220,9 +291,18 @@ export class CompilationEngine {
     const tag = "varDec";
     this.startBlock(tag);
 
+    const keyWord = this.tokenizer.keyWord();
+    if (keyWord !== "var") {
+      throw new Error(`${keyWord}: invalid keyWord`);
+    }
     const type = this.tokenizer.tokenType();
     // <keyword> var </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    this.pushResults(`<${type}> ${keyWord} </${type}>`);
+
+    this.id = {
+      cat: keyWord,
+    };
+
     while (
       this.tokenizer.hasMoreTokens() &&
       (!(this.tokenizer.tokenType() === "symbol") ||
@@ -604,5 +684,20 @@ export class CompilationEngine {
       currentToken = this.tokenizer.currentToken();
     }
     this.endBlock(tag);
+  }
+
+  private getSymbolKind(cat: string): SymbolKind {
+    switch (cat) {
+      case "var":
+        return "VAR";
+      case "argument":
+        return "ARG";
+      case "static":
+        return "STATIC";
+      case "field":
+        return "FIELD";
+      default:
+        throw new Error(`${cat}: invalid SymbolKind`);
+    }
   }
 }

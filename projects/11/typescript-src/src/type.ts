@@ -55,4 +55,12 @@ export const operators = ["+", "-", "*", "/", "&", "|", "<", ">", "="];
 
 export const unaryOperators = ["-", "~"];
 
-export type Kind = "STATIC" | "FIELD" | "ARG" | "VAR";
+export type SymbolCategory =
+  | "var"
+  | "argument"
+  | "static"
+  | "field"
+  | "class"
+  | "subroutine";
+
+export type SymbolKind = "STATIC" | "FIELD" | "ARG" | "VAR";
