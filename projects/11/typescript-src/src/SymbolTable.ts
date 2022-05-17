@@ -48,8 +48,6 @@ export class SymbolTable {
         this.table[0].push({ name, type, kind, index });
         break;
     }
-
-    console.log(this.table);
   }
 
   /**

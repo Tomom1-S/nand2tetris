@@ -103,7 +103,7 @@ export class CompilationEngine {
 
         const cat = this.symbolTable.kindOf(value);
         if (typeof this.id === "undefined" && cat !== "NONE") {
-          console.log("found in table");
+          // do nothing
         } else if (typeof this.id === "undefined") {
           break;
         } else if (cat === "NONE" && typeof this.id.type === "undefined") {
@@ -133,12 +133,14 @@ export class CompilationEngine {
         if (symbolKind !== "NONE") {
           // 識別子の属性
           this.pushResults(`<kind> ${symbolKind.toLowerCase()} </kind>`);
-          // 識別子は定義されているか or 使用されているか
-          this.pushResults(
-            `<role> ${
-              this.id && this.id?.cat === "var" ? "defined" : "used"
-            } </role>`
-          );
+          // 識別子は定義されているか(var) or 使用されているか
+          if (typeof this.id === "undefined" || this.id.cat === "var") {
+            this.pushResults(
+              `<role> ${
+                this.id && this.id?.cat === "var" ? "defined" : "used"
+              } </role>`
+            );
+          }
           // シンボルテーブルの実行番号
           this.pushResults(
             `<index> ${this.symbolTable.indexOf(value)} </index>`
