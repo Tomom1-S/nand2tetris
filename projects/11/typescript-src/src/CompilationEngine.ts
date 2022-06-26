@@ -23,7 +23,8 @@ export class CompilationEngine {
   }
 
   private pushResults(value: string): void {
-    this.results.push(`${this.indentation.spaces()}${value}`);
+    this.results.push(value);
+    // this.results.push(`${this.indentation.spaces()}${value}`);
   }
 
   // FIXME: このメソッドを使わなくて済むように直す
@@ -122,29 +123,27 @@ export class CompilationEngine {
         }
 
         this.startBlock(type);
-        this.pushResults(`<name> ${value} </name>`);
+        this.pushResults(`<name>${value}</name>`);
         const symbolKind = this.symbolTable.kindOf(value);
         // 識別子のカテゴリ(var、argument、static、field、class、subroutine)
         this.pushResults(
-          `<category> ${
+          `<category>${
             this.id ? this.id.cat : symbolKind.toLowerCase()
-          } </category>`
+          }</category>`
         );
         if (symbolKind !== "NONE") {
           // 識別子の属性
-          this.pushResults(`<kind> ${symbolKind.toLowerCase()} </kind>`);
+          this.pushResults(`<kind>${symbolKind.toLowerCase()}</kind>`);
           // 識別子は定義されているか(var) or 使用されているか
           if (typeof this.id === "undefined" || this.id.cat === "var") {
             this.pushResults(
-              `<role> ${
+              `<role>${
                 this.id && this.id?.cat === "var" ? "defined" : "used"
-              } </role>`
+              }</role>`
             );
           }
           // シンボルテーブルの実行番号
-          this.pushResults(
-            `<index> ${this.symbolTable.indexOf(value)} </index>`
-          );
+          this.pushResults(`<index>${this.symbolTable.indexOf(value)}</index>`);
         }
         this.endBlock(type);
         return;
@@ -156,7 +155,7 @@ export class CompilationEngine {
         value = this.tokenizer.stringVal();
         break;
     }
-    this.pushResults(`<${type}> ${value} </${type}>`);
+    this.pushResults(`<${type}>${value}</${type}>`);
   }
 
   /**
@@ -197,8 +196,8 @@ export class CompilationEngine {
       throw new Error(`${keyWord}: invalid keyWord`);
     }
     const type = this.tokenizer.tokenType();
-    // <keyword> { static | field } </keyword>
-    this.pushResults(`<${type}> ${keyWord} </${type}>`);
+    // <keyword>{ static | field }</keyword>
+    this.pushResults(`<${type}>${keyWord}</${type}>`);
 
     this.id = {
       cat: keyWord,
@@ -230,8 +229,8 @@ export class CompilationEngine {
     this.startBlock(tag);
 
     const type = this.tokenizer.tokenType();
-    // <keyword> { constructor | function | method } </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>{ constructor | function | method }</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
       (!(this.tokenizer.tokenType() === "symbol") ||
@@ -307,8 +306,8 @@ export class CompilationEngine {
       throw new Error(`${keyWord}: invalid keyWord`);
     }
     const type = this.tokenizer.tokenType();
-    // <keyword> var </keyword>
-    this.pushResults(`<${type}> ${keyWord} </${type}>`);
+    // <keyword>var</keyword>
+    this.pushResults(`<${type}>${keyWord}</${type}>`);
 
     this.id = {
       cat: keyWord,
@@ -388,8 +387,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> do </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>do</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
       (!(this.tokenizer.tokenType() === "symbol") ||
@@ -424,8 +423,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> let </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>let</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
       (!(this.tokenizer.tokenType() === "symbol") ||
@@ -465,8 +464,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> while </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>while</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -490,7 +489,7 @@ export class CompilationEngine {
           return;
         }
         this.compileStatements();
-        // <symbol> } </symbol>
+        // <symbol>}</symbol>
         this.convertToken();
       }
     }
@@ -515,15 +514,15 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> return </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>return</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     let currentToken = this.tokenizer.currentToken();
     while (currentToken !== ";") {
       this.compileExpression();
       currentToken = this.tokenizer.currentToken();
     }
-    // <symbol> ; </symbol>
+    // <symbol>;</symbol>
     this.convertToken();
     this.endBlock(tag);
   }
@@ -546,8 +545,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> if </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>if</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     let currentToken = this.tokenizer.currentToken();
     while (
@@ -573,7 +572,7 @@ export class CompilationEngine {
           const t = "statements";
           this.startBlock(t);
           this.endBlock(t);
-          // <symbol> } </symbol>
+          // <symbol>}</symbol>
           this.convertToken();
           continue;
         }
@@ -645,12 +644,12 @@ export class CompilationEngine {
       if (this.tokenizer.tokenType() === "identifier") {
         switch (this.tokenizer.currentToken()) {
           case "[":
-            // <symbol> [ </symbol>
+            // <symbol>[</symbol>
             this.convertToken();
             this.compileExpression();
             break;
           case "(":
-            // <symbol> ( </symbol>
+            // <symbol>(</symbol>
             this.convertToken();
             this.compileExpressionList();
             break;
@@ -690,7 +689,7 @@ export class CompilationEngine {
     let currentToken = this.tokenizer.currentToken();
     while (this.tokenizer.hasMoreTokens() && ![")"].includes(currentToken)) {
       if (currentToken === ",") {
-        // <symbol> , </symbol>
+        // <symbol>,</symbol>
         this.convertToken();
       } else {
         this.compileExpression();
