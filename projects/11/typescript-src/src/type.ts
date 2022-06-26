@@ -66,22 +66,32 @@ export type SymbolCategory =
 export type SymbolKind = "STATIC" | "FIELD" | "ARG" | "VAR";
 
 export type Segment =
-  | "CONST"
-  | "ARG"
-  | "LOCAL"
-  | "STATIC"
-  | "THIS"
-  | "THAT"
-  | "POINTER"
-  | "TEMP";
+  | "constant"
+  | "argument"
+  | "local"
+  | "static"
+  | "this"
+  | "that"
+  | "pointer"
+  | "temp";
 
 export type Command =
-  | "ADD"
-  | "SUB"
-  | "NEG"
-  | "EQ"
-  | "GT"
-  | "LT"
-  | "AND"
-  | "OR"
-  | "NOT";
+  | "add"
+  | "sub"
+  | "neg"
+  | "eq"
+  | "gt"
+  | "lt"
+  | "and"
+  | "or"
+  | "not";
+
+export type Term = {
+  integerConstant: number[];
+  symbol: string[];
+  expression: Expression[];
+};
+
+export type Expression = {
+  term: Term[];
+};

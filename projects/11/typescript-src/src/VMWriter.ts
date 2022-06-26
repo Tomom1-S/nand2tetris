@@ -1,66 +1,55 @@
 import * as fs from "fs";
-import * as path from "path";
 import { Command, Segment } from "./type";
 
 const SEPARATOR = "\n";
 
 export class VMWriter {
-  saveName: string;
+  outputPath: string;
   results: string[] = [];
 
-  // FIXME 8章演習からのコピー
   constructor(filepath: string) {
-    const parsedPath = path.parse(filepath);
-    const saveDir = fs.lstatSync(filepath).isFile()
-      ? parsedPath.dir
-      : `${parsedPath.dir}/${parsedPath.name}`;
-    this.saveName = `${saveDir}/${parsedPath.name}.vm`;
+    this.outputPath = filepath;
   }
 
   writePush(segment: Segment, index: number): void {
-    // pushコマンドを書く
+    this.results.push(`push ${segment} ${index}`);
   }
 
   writePop(segment: Segment, index: number): void {
-    // popコマンドを書く
+    this.results.push(`pop ${segment} ${index}`);
   }
 
   writeArithmetic(command: Command): void {
-    // 算術コマンドを書く
+    this.results.push(command);
   }
 
   writeLabel(label: string): void {
-    // labelコマンドを書く
+    this.results.push(`label ${label}`);
   }
 
   writeGoto(label: string): void {
-    // gotoコマンドを書く
+    this.results.push(`goto ${label}`);
   }
 
   writeIf(label: string): void {
-    // If-gotoコマンドを書く
+    this.results.push(`if-goto ${label}`);
   }
 
   writeCall(name: string, nArgs: number): void {
-    // callコマンドを書く
+    this.results.push(`call ${name} ${nArgs}`);
   }
 
   writeFunction(name: string, nLocals: number): void {
-    // functionコマンドを書く
+    this.results.push(`function ${name} ${nLocals}`);
   }
 
   writeReturn(): void {
-    // returnコマンドを書く
+    this.results.push("return");
   }
 
-  // FIXME 8章演習からのコピー
   close(): void {
-    // 出力ファイルを閉じる
-
-    fs.writeFile(this.saveName, this.results.join(SEPARATOR), (err) => {
-      if (err) {
-        throw err;
-      }
-    });
+    this.results.push(""); // ファイルの最後に空行を挿入
+    fs.writeFileSync(this.outputPath, this.results.join(SEPARATOR));
+    console.log(`Compiled: ${this.outputPath}`);
   }
 }
