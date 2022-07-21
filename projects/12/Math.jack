@@ -85,7 +85,7 @@ class Math {
 
       let absX = Math.abs(x);
       let absY = Math.abs(y);
-      if (absY > absX) {
+      if ((absY > absX) | (absY < 0)) {
         return 0;
       }
 
