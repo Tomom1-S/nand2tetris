@@ -10,22 +10,78 @@
  * the screen is indexed (0,0).
  */
 class Screen {
+    static int base;    // RAM上のスクリーンの基点
+    static boolean color;
+    static int height;  // スクリーンの高さ
+    static int width;   // スクリーンの幅
+    // 長さ16の配列、それぞれの要素がi番目のビットのみ1となっている数
+    static Array twoToThe;
 
     /** Initializes the Screen. */
     function void init() {
+      var int i;
+
+      let base = 16384;
+      let height = 256;
+      let width = 512;
+      let twoToThe = Array.new(16);  // 16bit
+      let twoToThe[i] = 1;
+      let i = 1;
+      while (i < 16) {
+        let twoToThe[i] = twoToThe[i - 1] + twoToThe[i - 1];
+        let i = i + 1;
+      }
+
+      do Screen.clearScreen();
+      return;
     }
 
     /** Erases the entire screen. */
     function void clearScreen() {
+      var int x, y;
+
+      let color = false;  // white
+      let x = 0;
+      let y = 0;
+      while (y < height) {
+        while (x < width) {
+          do Screen.drawPixel(x, y);
+          let x = x + 1;
+        }
+        let y = y + 1;
+        let x = 0;
+      }
+      let color = true;  // black
+      return;
     }
 
     /** Sets the current color, to be used for all subsequent drawXXX commands.
      *  Black is represented by true, white by false. */
     function void setColor(boolean b) {
+      let color = b;
+      return;
     }
 
     /** Draws the (x,y) pixel, using the current color. */
     function void drawPixel(int x, int y) {
+      var int word, value, tgt, colorBit;
+
+      if ((x < 0) | ~(x < width) | (y < 0) | ~(y < height)) {
+        do Sys.error(7);  // 不適切な座標にドットを描画
+      }
+
+      let word = base + Math.multiply(32, y) + Math.divide(x, 16);
+      let value = Memory.peek(word);
+      let tgt = x - (16 * Math.divide(x, 16));
+      let colorBit = twoToThe[tgt];
+      if (color) {  // 黒にするときはOR
+        let value = value | colorBit;
+      } else {  // 白にするときはAND
+        let colorBit = ~colorBit;
+        let value = value & colorBit;
+      }
+      do Memory.poke(word, value);
+      return;
     }
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
