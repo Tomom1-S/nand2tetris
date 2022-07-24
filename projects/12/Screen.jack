@@ -191,12 +191,21 @@ class Screen {
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
-      // if (~(size > x)) {
-      //   do Sys.error(10);  // 円の中心が不適切
-      // }
-      // if (~(size > x)) {
-      //   do Sys.error(11);  // 円の半径が不適切
-      // }
+      var int dx, dy;
+
+      if (~Screen.isValidPoint(x, y)) {
+        do Sys.error(10);  // 円の中心が不適切
+      }
+      if (r > 181) {
+        do Sys.error(11);  // 円の半径が不適切
+      }
+
+      let dy = -r;
+      while (~(dy > r)) {
+        let dx = Math.sqrt((r * r) - (dy * dy));
+        do Screen.drawLine(x - dx, y + dy, x + dx, y + dy);
+        let dy = dy + 1;
+      }
       return;
     }
 
