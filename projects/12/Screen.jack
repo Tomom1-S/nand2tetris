@@ -66,7 +66,7 @@ class Screen {
     function void drawPixel(int x, int y) {
       var int word, value, tgt, colorBit;
 
-      if ((x < 0) | ~(x < width) | (y < 0) | ~(y < height)) {
+      if (~Screen.isValidPoint(x, y)) {
         do Sys.error(7);  // 不適切な座標にドットを描画
       }
 
@@ -86,14 +86,125 @@ class Screen {
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
+      var int dx, dy, a, b, stepA, stepB, diff;
+
+      if (~Screen.isValidPoint(x1, y1) | ~Screen.isValidPoint(x2, y2)) {
+        do Sys.error(8);  // 不適切な座標にラインを描画
+      }
+
+      let dx = x2 - x1;
+      let dy = y2 - y1;
+
+      // 直線がx軸/y軸に平行なとき
+      if (dx = 0) {
+        do Screen.drawVerticalLine(x1, y1, y2);
+        return;
+      }
+      if (dy = 0) {
+        do Screen.drawHorizontalLine(y1, x1, x2);
+        return;
+      }
+
+      // 直線がx軸/y軸に平行でないとき
+      let a = 0;
+      let b = 0;
+      if (x1 < x2) {  // 引きたい直線は右向き(+方向)か左向き(-方向)か
+        let stepA = 1;
+      } else {
+        let stepA = -1;
+      }
+      if (y1 < y2) {  // 引きたい直線は下向き(+方向)か上向き(-方向)か
+        let stepB = 1;
+      } else {
+        let stepB = -1;
+      }
+      while (~(Math.abs(a) > Math.abs(dx)) & ~(Math.abs(b) > Math.abs(dy))) {
+        do Screen.drawPixel(x1 + a, y1 + b);
+        let diff = Math.abs(a * dy) - Math.abs(b * dx);
+        if (diff > 0) {   // 引いた直線の傾きが目的とする傾きよりも小さいとき
+          let b = b + stepB;  // 傾きを大きくする
+        } else {
+          let a = a + stepA;
+        }
+      }
+      return;
+    }
+
+    /** Draws a horizontal line from pixel (x1,y) to pixel (x2,y), using the current color. */
+    function void drawHorizontalLine(int y, int x1, int x2) {
+      var int x, end;
+
+      if (x1 < x2) {
+        let x = x1;
+        let end = x2;
+      } else {
+        let x = x2;
+        let end = x1;
+      }
+      while (~(x > end)) {
+        do Screen.drawPixel(x, y);
+        let x = x + 1;
+      }
+      return;
+    }
+
+    /** Draws a vertical line from pixel (x,y1) to pixel (x,y2), using the current color. */
+    function void drawVerticalLine(int x, int y1, int y2) {
+      var int y, end;
+
+      if (y1 < y2) {
+        let y = y1;
+        let end = y2;
+      } else {
+        let y = y2;
+        let end = y1;
+      }
+      while (~(y > end)) {
+        do Screen.drawPixel(x, y);
+        let y = y + 1;
+      }
+      return;
     }
 
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
+      var int y, endY;
+
+      if (~Screen.isValidPoint(x1, y1) | ~Screen.isValidPoint(x2, y2)) {
+        do Sys.error(9);  // 不適切な座標に矩形を描画
+      }
+
+      if (y1 < y2) {
+        let y = y1;
+        let endY = y2;
+      } else {
+        let y = y2;
+        let endY = y1;
+      }
+      while (~(y > endY)) {
+        do Screen.drawLine(x1, y, x2, y);
+        let y = y + 1;
+      }
+      return;
     }
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
+      // if (~(size > x)) {
+      //   do Sys.error(10);  // 円の中心が不適切
+      // }
+      // if (~(size > x)) {
+      //   do Sys.error(11);  // 円の半径が不適切
+      // }
+      return;
+    }
+
+    /** Retuens whether the point(x, y) is on the Screen or not */
+    function boolean isValidPoint(int x, int y) {
+      if ((x < 0) | ~(x < width) | (y < 0) | ~(y < height)) {
+        return false;
+      }
+      return true;
     }
 }
