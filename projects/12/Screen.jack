@@ -209,7 +209,7 @@ class Screen {
       return;
     }
 
-    /** Retuens whether the point(x, y) is on the Screen or not */
+    /** Returns whether the point(x, y) is on the Screen or not */
     function boolean isValidPoint(int x, int y) {
       if ((x < 0) | ~(x < width) | (y < 0) | ~(y < height)) {
         return false;

@@ -11,9 +11,9 @@
  * string-oriented operations.
  */
 class String {
-    field Array str;
     field int len;
     field int maxLen;
+    field Array str;
 
     /** constructs a new empty string with a maximum length of maxLength
      *  and initial length of 0. */
