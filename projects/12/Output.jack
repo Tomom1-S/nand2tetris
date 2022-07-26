@@ -15,12 +15,19 @@
  * as a small filled square, indicates where the next character will be displayed.
  */
 class Output {
+    static int line;
+    static int column;
+    static Array screenArr;  // スクリーンのピクセルは16384~24574に入る
 
     // Character map for displaying characters
     static Array charMaps; 
 
     /** Initializes the screen, and locates the cursor at the screen's top-left. */
     function void init() {
+      let screenArr = 16384;
+      do Output.initMap();
+      do Output.moveCursor(0, 0);
+      return;
     }
 
     // Initializes the character map array
@@ -71,7 +78,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,0,0,0,0,0,0,0,0,0,0,0);          // A ** TO BE FILLED **
+        do Output.create(65,12,30,51,51,63,51,51,51,51,0,0); // A ** TO BE FILLED **
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -176,28 +183,90 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
+      if (~Output.isValidCursor(i, j)) {
+        do Sys.error(20);  // カーソル位置が不適切
+      }
+
+      // カーソルが右端に到達したら、一番左に戻す
+      if (j > 63) {
+        let j = 0;
+        let i = i + 1;
+      }
+      // カーソルが下端に到達したら、一番上に戻す
+      if (i > 22) {
+        let i = 0;
+      }
+      let line = i;
+      let column = j;
+      return;
     }
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
+      var Array map;
+      var int y, address, rem;
+
+      let map = Output.getMap(c);
+      let address = ((line * 11) * 32) + ((column * 8) / 16);  // 文字を書き込みたい位置のスクリーン配列のインデックス
+      let y = 0;
+      while (y < 11) {
+        let rem = column - ((column / 2) * 2);  // column % 2
+        if (rem = 0) {  // columnが偶数なら、map[i]は16bitの下位bitに相当
+          let screenArr[address] = screenArr[address] | map[y];
+        } else {  // columnが奇数なら、map[i]は16bitの上位bitに相当
+          let screenArr[address] = screenArr[address] | (map[y] * 256);
+        }
+        let address = address + 32;
+        let y = y + 1;
+      }
+      do Output.moveCursor(line, column + 1);
+      return;
     }
 
     /** displays the given string starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printString(String s) {
+      var int len, base, i;
+      var Array str;
+
+      let len = s[0];  // 文字列の長さ
+      let str = s[2];  // 文字列の中身が入っている配列のアドレス
+      while (i < len) {
+        do Output.printChar(str[i]);  // 文字列はStringオブジェクトの配列の2番目から
+        let i = i + 1;
+      }
+      return;
     }
 
     /** Displays the given integer starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printInt(int i) {
+      var String str;
+
+      let str = String.new(6);  // (-32768~32767の数字を扱うので、文字数は最大でも6)
+      do str.setInt(i);
+      do Output.printString(str);
+      return;
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+      do Output.moveCursor(line + 1, 0);
+      return;
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+      do Output.moveCursor(line, column - 1);
+      return;
+    }
+
+    /** Returns whether the cursor is on the Screen or not */
+    function boolean isValidCursor(int x, int y) {
+      if ((x < 0) | (y < 0)) {
+        return false;
+      }
+      return true;
     }
 }
