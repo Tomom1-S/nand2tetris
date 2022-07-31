@@ -90,7 +90,8 @@ class String {
 
       let v = 0;
       let i = 0;
-      if (str[i] = 45) {  // 1文字目を見て富豪を決める
+      let sign = 0;
+      if (str[i] = 45) {  // 1文字目を見て符号を決める
         let sign = -1;
         let i = i + 1;
       } else {

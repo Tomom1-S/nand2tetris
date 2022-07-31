@@ -183,6 +183,9 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
+      var Array map;
+      var int y, address, rem;
+
       if (~Output.isValidCursor(i, j)) {
         do Sys.error(20);  // カーソル位置が不適切
       }
@@ -198,6 +201,20 @@ class Output {
       }
       let line = i;
       let column = j;
+
+      // カーソルを移動した先の文字を消す
+      let address = ((line * 11) * 32) + ((column * 8) / 16);  // 文字を書き込みたい位置のスクリーン配列のインデックス
+      let y = 0;
+      while (y < 11) {
+        let rem = column - ((column / 2) * 2);  // column % 2
+        if (rem = 0) {  // columnが偶数なら、map[i]は16bitの下位bitに相当
+          let screenArr[address] = screenArr[address] & (-256);
+        } else {  // columnが奇数なら、map[i]は16bitの上位bitに相当
+          let screenArr[address] = screenArr[address] & 255;
+        }
+        let address = address + 32;
+        let y = y + 1;
+      }
       return;
     }
 
