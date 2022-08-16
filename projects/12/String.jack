@@ -11,54 +11,161 @@
  * string-oriented operations.
  */
 class String {
+    field int len;
+    field int maxLen;
+    field Array str;
 
     /** constructs a new empty string with a maximum length of maxLength
      *  and initial length of 0. */
     constructor String new(int maxLength) {
+      if (maxLength < 0) {
+        do Sys.error(14);  // 文字列の最大長は正でなければならない
+      }
+
+      if (maxLength = 0) {  // 文字列の最大長0は許容(StringTest/Main.jack)
+        let maxLen = 1;
+      } else {
+        let maxLen = maxLength;
+      }
+      let str = Array.new(maxLen);
+      let len = 0;
+      return this;
     }
 
     /** Disposes this string. */
     method void dispose() {
+      do Memory.deAlloc(str);
+      return;
     }
 
     /** Returns the current length of this string. */
     method int length() {
+      return len;
     }
 
     /** Returns the character at the j-th location of this string. */
     method char charAt(int j) {
+      if ((j < 0) | (~(j < len))) {  // 0 <= j < len でないとき
+        do Sys.error(15);  // 文字列の範囲外のインデックスを指定
+      }
+
+      return str[j];
     }
 
     /** Sets the character at the j-th location of this string to c. */
     method void setCharAt(int j, char c) {
+      if ((j < 0) | (~(j < len))) {  // 0 <= j < len でないとき
+        do Sys.error(16);  // 文字列の範囲外のインデックスを指定
+      }
+
+      let str[j] = c;
+      return;
     }
 
     /** Appends c to this string's end and returns this string. */
     method String appendChar(char c) {
+      if (~(len < maxLen)) {
+        do Sys.error(17);  // 文字列が満杯
+      }
+
+      let str[len] = c;
+      let len = len + 1;
+      return this;
     }
 
     /** Erases the last character from this string. */
     method void eraseLastChar() {
+      if (len = 0) {
+        do Sys.error(18);  // 文字列が空である
+      }
+
+      let len = len - 1;
+      return;
     }
 
     /** Returns the integer value of this string, 
      *  until a non-digit character is detected. */
     method int intValue() {
+      var int v, i, sign, d;
+
+      let v = 0;
+      let i = 0;
+      let sign = 0;
+      if (str[i] = 45) {  // 1文字目を見て符号を決める
+        let sign = -1;
+        let i = i + 1;
+      } else {
+        let sign = 1;
+      }
+      while (i < len) {
+        let d = str[i] - 48;
+        if (d < 0 | d > 9) {  // 数字でない文字が出てきたら終了
+          return v;
+        }
+        let v = v * 10 + d;
+        let i = i + 1;
+      }
+      return v * sign;
     }
 
     /** Sets this string to hold a representation of the given value. */
     method void setInt(int val) {
+      var int digits, absVal, i, lastDigit, ch;
+
+      let len = 0;  // 既存の文字列をクリア
+      // valが何文字になるか調べて、文字列のサイズが足りなければエラー
+      let digits = 1;  // 少なくとも1文字以上
+      if (val < 0) {
+        let digits = digits + 1;  // '-'記号は1文字
+      }
+      let absVal = Math.abs(val);
+      let i = 10000;  // absValは最大でも5桁
+      while (~(i < 10)) {
+        if (Math.divide(absVal, i) > 0) {
+          let digits = digits + 1;
+        }
+        let i = Math.divide(i, 10);
+      }
+      if (digits > maxLen) {
+        do Sys.error(19);  // 文字列のサイズが足りない
+      }
+
+      // 文字列がマイナスのとき
+      if (val < 0) {
+        do appendChar(45);  // '-'を追加
+      }
+
+      do int2String(absVal);
+      return;
     }
 
     /** Returns the new line character. */
     function char newLine() {
+      return 128;
     }
 
     /** Returns the backspace character. */
     function char backSpace() {
+      return 129;
     }
 
     /** Returns the double quote (") character. */
     function char doubleQuote() {
+      return 34;
+    }
+
+    /** Returns the converted integer as string */
+    method String int2String(int val) {
+      var int digits, lastDigit, ch;
+
+      let lastDigit = val - (Math.divide(val, 10) * 10);  // val % 10
+      let ch = lastDigit + 48;
+      if (val < 10) {
+        do appendChar(ch);
+        return this;
+      }
+      do int2String(Math.divide(val, 10));
+      do appendChar(ch);
+      return this;
     }
 }
