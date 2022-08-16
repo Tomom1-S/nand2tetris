@@ -16,7 +16,7 @@ class Math {
       var int i;
 
       let twoToThe = Array.new(16);  // 16bit
-      let twoToThe[i] = 1;
+      let twoToThe[0] = 1;
       let i = 1;
       while (i < 16) {
         let twoToThe[i] = twoToThe[i - 1] + twoToThe[i - 1];
