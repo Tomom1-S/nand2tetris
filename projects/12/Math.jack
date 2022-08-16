@@ -8,13 +8,37 @@
  * Note: Jack compilers implement multiplication and division using OS method calls.
  */
 class Math {
+  // 長さ16の配列、それぞれの要素がi番目のビットのみ1となっている数
+  static Array twoToThe;
 
     /** Initializes the library. */
     function void init() {
+      var int i;
+
+      let twoToThe = Array.new(16);  // 16bit
+      let twoToThe[0] = 1;
+      let i = 1;
+      while (i < 16) {
+        let twoToThe[i] = twoToThe[i - 1] + twoToThe[i - 1];
+        let i = i + 1;
+      }
+      return;
+    }
+
+    /** Returns whether j-th bit is 1 */
+    function boolean bit(int x, int j) {
+      if ((x & twoToThe[j]) = twoToThe[j]) {
+        return true;
+      }
+      return false;
     }
 
     /** Returns the absolute value of x. */
     function int abs(int x) {
+      if (x < 0) {
+        let x = -x;
+      }
+      return x;
     }
 
     /** Returns the product of x and y. 
@@ -23,6 +47,29 @@ class Math {
      *  the Jack expressions x*y and multiply(x,y) return the same value.
      */
     function int multiply(int x, int y) {
+      var int sum, shiftedX, absY, i;
+
+      let sum = 0;
+      let shiftedX = Math.abs(x);
+      let absY = Math.abs(y);
+      let i = 0;
+      while (i < 16) {
+        if (Math.bit(absY, i)) {
+          let sum = sum + shiftedX;
+        }
+        let shiftedX = shiftedX + shiftedX;
+        let i = i + 1;
+      }
+
+      // 符号を付ける
+      if (x < 0) {
+        let sum = -sum;
+      }
+      if (y < 0) {
+        let sum = -sum;
+      }
+
+      return sum;
     }
 
     /** Returns the integer part of x/y.
@@ -31,17 +78,70 @@ class Math {
      *  the Jack expressions x/y and divide(x,y) return the same value.
      */
     function int divide(int x, int y) {
+      var int quot, absX, absY;
+
+      if (y = 0) {
+        do Sys.error(3);  // 0 で除算された
+      }
+
+      let absX = Math.abs(x);
+      let absY = Math.abs(y);
+      if ((absY > absX) | (y < 0)) {
+        return 0;
+      }
+
+      let quot = Math.divide(absX, 2 * absY);
+      if ((absX - (2 * quot * absY)) < absY) {
+        let quot = 2 * quot;
+      } else {
+        let quot = (2 * quot) + 1;
+      }
+
+      // 符号を付ける
+      if (x < 0) {
+        let quot = -quot;
+      }
+      if (y < 0) {
+        let quot = -quot;
+      }
+      return quot;
     }
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
+      var int y, i, postY;
+
+      if (x < 0) {
+        do Sys.error(4);  // 負の数の平方根は計算できない
+      }
+
+      let y = 0;
+      // 0 <= x < 2^16 なので、0 <= y < 2^8
+      // すなわち、yは 0 以上 2^8-1 以下の整数
+      let i = 7;
+      while (~(i < 0)) {
+        let postY = y + twoToThe[i];  // y + 2^i
+        if (~((postY * postY) > x) & ((postY * postY) > 0)) {
+          let y = postY;
+        }
+        let i = i - 1;
+      }
+      return y;
     }
 
     /** Returns the greater number. */
     function int max(int a, int b) {
+      if (a > b) {
+        return a;
+      }
+      return b;
     }
 
     /** Returns the smaller number. */
     function int min(int a, int b) {
+      if (a < b) {
+        return a;
+      }
+      return b;
     }
 }

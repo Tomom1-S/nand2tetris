@@ -9,26 +9,85 @@
  * consists of 32,768 words, each holding a 16-bit binary number.
  */ 
 class Memory {
+    static Array ram, heap, freeList;
 
     /** Initializes the class. */
     function void init() {
+       let ram = 0;
+       let heap = 2048;      // heapのベースアドレス
+       let freeList = heap;
+       let freeList[0] = null;      // next
+       let freeList[1] = 14334;  // length (= 16383 - 2048 + 1)
+       return;
     }
 
     /** Returns the RAM value at the given address. */
     function int peek(int address) {
+      return ram[address];
     }
 
     /** Sets the RAM value at the given address to the given value. */
     function void poke(int address, int value) {
+      let ram[address] = value;
+      return;
     }
 
     /** Finds an available RAM block of the given size and returns
      *  a reference to its base address. */
     function int alloc(int size) {
+      var Array block;
+      var int segment, segLen, prev;
+
+      if (~(size > 0)) {
+        do Sys.error(5);  // 確保するメモリサイズは正でなければならない
+      }
+
+      let segment = freeList;
+      let segLen = segment[1];
+      while (~(segment[0] = null)) {
+        // セグメントの長さが切り取りたいサイズとほぼ同じとき
+        if (~(segLen < (size + 2)) & ~(segLen > (size + 4))) {
+          // セグメントをそのままブロックに当てはめる
+          let prev = segment[0];
+          let segment[0] = null;
+          let segment[1] = size;
+          return segment + 2;
+        }
+        if (~(segLen < (size + 2))) {
+          let segment[1] = segLen - size - 2;
+          // セグメントの末端を切り取る
+          let block = segment + segLen - size;
+          let block[-1] = size;
+          let block[-2] = null;
+          return block;
+        }
+        let prev = segment;
+        let segment = segment[0];
+        let segLen = segment[1];
+      }
+
+      if (segLen < (size + 2)) {
+        do Sys.error(6);  // ヒープオーバフロー
+      }
+
+      let segment[1] = segLen - size - 2;
+      // セグメントの末端を切り取る
+      let block = segment + segLen - size;
+      let block[-1] = size;
+      let block[-2] = null;
+      return block;
     }
 
     /** De-allocates the given object (cast as an array) by making
      *  it available for future allocations. */
     function void deAlloc(Array o) {
+      var int next;
+
+      let next = freeList;
+      while (~(next[0] = null)) {
+        let next = next[0];
+      }
+      let next[0] = o - 2;
+      return;
     }    
 }
