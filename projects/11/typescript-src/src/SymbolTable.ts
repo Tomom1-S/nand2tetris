@@ -8,13 +8,13 @@ type element = {
 };
 
 export class SymbolTable {
-  // 0番目: サブルーチンのシンボルテーブル
-  // 1番目: クラスのシンボルテーブル
-  table: Array<Array<element>>;
+  table: { subroutine: Array<element>; klass: Array<element> };
 
   constructor() {
-    // this.table = new Array<IHashtable<string, Element>>(2);
-    this.table = [[] as Array<element>, [] as Array<element>];
+    this.table = {
+      subroutine: [] as Array<element>,
+      klass: [] as Array<element>,
+    };
   }
 
   /**
@@ -22,7 +22,7 @@ export class SymbolTable {
    * つまり、サブルーチンのシンボルテーブルをリセットする
    */
   startSubroutine(): void {
-    this.table[0] = [];
+    this.table.subroutine = [];
   }
 
   /**
@@ -41,11 +41,11 @@ export class SymbolTable {
     switch (kind) {
       case "STATIC":
       case "FIELD":
-        this.table[1].push({ name, type, kind, index });
+        this.table.klass.push({ name, type, kind, index });
         break;
       case "ARG":
       case "VAR":
-        this.table[0].push({ name, type, kind, index });
+        this.table.subroutine.push({ name, type, kind, index });
         break;
     }
   }
@@ -57,11 +57,13 @@ export class SymbolTable {
    */
   varCount(kind: SymbolKind): number {
     let count = 0;
-    for (const t of this.table) {
-      for (const v of t.values()) {
-        if (v.kind === kind) {
-          count++;
-        }
+
+    const elements = [...this.table.subroutine, ...this.table.klass].filter(
+      (e) => e
+    );
+    for (const e of elements) {
+      if (e.kind === kind) {
+        count++;
       }
     }
     return count;
@@ -73,11 +75,11 @@ export class SymbolTable {
    * @returns 識別子の属性、現在のスコープで見つからなければ NONE を返す
    */
   kindOf(name: string): SymbolKind | "NONE" {
-    for (const t of this.table) {
-      const kind = t.find((e) => e.name === name)?.kind;
-      if (typeof kind !== "undefined") {
-        return kind;
-      }
+    const kind = [...this.table.subroutine, ...this.table.klass]
+      .filter((e) => e)
+      .find((elem) => elem.name === name)?.kind;
+    if (typeof kind !== "undefined") {
+      return kind;
     }
     return "NONE";
   }
@@ -88,11 +90,11 @@ export class SymbolTable {
    * @returns 識別子の型
    */
   typeOf(name: string): string {
-    for (const t of this.table) {
-      const type = t.find((e) => e.name === name)?.type;
-      if (typeof type !== "undefined") {
-        return type;
-      }
+    const type = [...this.table.subroutine, ...this.table.klass]
+      .filter((e) => e)
+      .find((elem) => elem.name === name)?.type;
+    if (typeof type !== "undefined") {
+      return type;
     }
     throw new Error(`${name} is not found!`);
   }
@@ -103,11 +105,11 @@ export class SymbolTable {
    * @returns 識別子のインデックス
    */
   indexOf(name: string): number {
-    for (const t of this.table) {
-      const index = t.find((e) => e.name === name)?.index;
-      if (typeof index !== "undefined") {
-        return index;
-      }
+    const index = [...this.table.subroutine, ...this.table.klass]
+      .filter((e) => e)
+      .find((elem) => elem.name === name)?.index;
+    if (typeof index !== "undefined") {
+      return index;
     }
     throw new Error(`${name} is not found!`);
   }
