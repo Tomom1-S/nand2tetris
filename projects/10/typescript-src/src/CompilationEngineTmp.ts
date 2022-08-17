@@ -77,14 +77,13 @@ export class CompilationEngineTmp {
           case "var":
             this.compileVarDec();
             return;
-          //   case "do":
-          // case "let":
-          //   case "while":
-          //   case "return":
-          //   case "if":
-          // this.compileLet();
-          // this.compileStatements();
-          // return;
+          case "do":
+          case "let":
+          case "while":
+          case "return":
+          case "if":
+            this.compileStatements();
+            return;
         }
         break;
       case "symbol":
@@ -212,7 +211,6 @@ export class CompilationEngineTmp {
     const type = this.tokenizer.tokenType();
     // <keyword> var </keyword>
     this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
-    this.convertToken();
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -235,6 +233,28 @@ export class CompilationEngineTmp {
     const tag = "statements";
     this.startBlock(tag);
 
+    let currentToken = this.tokenizer.keyWord();
+    while (["do", "let", "while", "return", "if"].includes(currentToken)) {
+      switch (currentToken) {
+        case "do":
+          this.compileDo();
+          break;
+        case "let":
+          this.compileLet();
+          break;
+        case "while":
+          this.compileWhile();
+          break;
+        case "return":
+          this.compileReturn();
+          break;
+        case "if":
+          this.compileIf();
+          break;
+      }
+      currentToken = this.tokenizer.currentToken();
+    }
+
     this.endBlock(tag);
   }
 
@@ -246,6 +266,26 @@ export class CompilationEngineTmp {
   compileDo(): void {
     const tag = "doStatement";
     this.startBlock(tag);
+
+    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.tokenType() !== "keyword"
+    ) {
+      this.tokenizer.advance();
+    }
+
+    const type = this.tokenizer.tokenType();
+    // <keyword> do </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== ";"
+    ) {
+      this.convertToken();
+    }
+    this.convertToken(); // ";" を出力
 
     this.endBlock(tag);
   }
@@ -259,6 +299,33 @@ export class CompilationEngineTmp {
     const tag = "letStatement";
     this.startBlock(tag);
 
+    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.tokenType() !== "keyword"
+    ) {
+      this.tokenizer.advance();
+    }
+
+    const type = this.tokenizer.tokenType();
+    // <keyword> let </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== ";"
+    ) {
+      this.convertToken();
+    }
+    this.convertToken(); // ";" を出力
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== ";"
+    ) {
+      this.convertToken();
+    }
+    this.convertToken(); // ";" を出力
+
     this.endBlock(tag);
   }
 
@@ -270,6 +337,14 @@ export class CompilationEngineTmp {
   compileWhile(): void {
     const tag = "whileStatement";
     this.startBlock(tag);
+
+    // while (
+    //   this.tokenizer.hasMoreTokens() &&
+    //   this.tokenizer.currentToken() !== ";"
+    // ) {
+    this.convertToken();
+    // }
+    // this.convertToken(); // ";" を出力
 
     this.endBlock(tag);
   }
@@ -283,6 +358,26 @@ export class CompilationEngineTmp {
     const tag = "returnStatement";
     this.startBlock(tag);
 
+    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.tokenType() !== "keyword"
+    ) {
+      this.tokenizer.advance();
+    }
+
+    const type = this.tokenizer.tokenType();
+    // <keyword> return </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== ";"
+    ) {
+      this.convertToken();
+    }
+    this.convertToken(); // ";" を出力
+
     this.endBlock(tag);
   }
 
@@ -294,6 +389,8 @@ export class CompilationEngineTmp {
   compileIf(): void {
     const tag = "ifStatement";
     this.startBlock(tag);
+
+    this.convertToken();
 
     this.endBlock(tag);
   }
@@ -330,6 +427,13 @@ export class CompilationEngineTmp {
   compileExpressionList(): void {
     const tag = "expressionList";
     this.startBlock(tag);
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== ")"
+    ) {
+      this.convertToken();
+    }
 
     this.endBlock(tag);
   }
