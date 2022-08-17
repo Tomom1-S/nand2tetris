@@ -65,11 +65,11 @@ export class CompilationEngineTmp {
       case "keyword":
         value = this.tokenizer.keyWord();
         switch (value) {
-          //   case "constructor":
-          //   case "function":
-          //   case "method":
-          //     this.compileSubroutine();
-          //     return;
+          case "constructor":
+          case "function":
+          case "method":
+            this.compileSubroutine();
+            return;
           case "field":
           case "static":
             this.compileClassVarDec();
@@ -131,6 +131,9 @@ export class CompilationEngineTmp {
     const tag = "classVarDec";
     this.startBlock(tag);
 
+    const type = this.tokenizer.tokenType();
+    // <keyword> { static | field } </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -148,11 +151,34 @@ export class CompilationEngineTmp {
    * (’constructor’ | ’function’ | ’method’) (’void’ | type) subroutineName ’(’ parameterList ’)’ subroutineBody
    */
   compileSubroutine(): void {
-    const tag = "subroutineDec";
-    this.startBlock(tag);
+    const decTag = "subroutineDec";
+    this.startBlock(decTag);
+    const bodyTag = "subroutineBody";
 
-    this.endBlock("subroutineBody");
-    this.endBlock(tag);
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== "}"
+    ) {
+      if (this.tokenizer.currentToken() === "(") {
+        this.convertToken(); // "(" を出力
+        this.compileParameterList();
+        continue;
+      } else if (this.tokenizer.currentToken() === ")") {
+        this.convertToken(); // ")" を出力
+        this.startBlock(bodyTag);
+        continue;
+        // } else if (this.tokenizer.currentToken() === "{") {
+        //   this.convertToken(); // "{" を出力
+        //   // this.compileVarDec();
+        //   continue;
+      }
+
+      this.convertToken();
+    }
+    this.convertToken(); // "}" を出力
+
+    this.endBlock(bodyTag);
+    this.endBlock(decTag);
   }
 
   /**
@@ -163,6 +189,13 @@ export class CompilationEngineTmp {
   compileParameterList(): void {
     const tag = "parameterList";
     this.startBlock(tag);
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.currentToken() !== ")"
+    ) {
+      this.convertToken();
+    }
 
     this.endBlock(tag);
   }
@@ -176,6 +209,10 @@ export class CompilationEngineTmp {
     const tag = "varDec";
     this.startBlock(tag);
 
+    const type = this.tokenizer.tokenType();
+    // <keyword> var </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    this.convertToken();
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
