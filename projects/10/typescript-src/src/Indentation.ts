@@ -13,5 +13,8 @@ export class Indentation {
 
   outdent(): void {
     this.level--;
+    if (this.level < 0) {
+      this.level = 0;
+    }
   }
 }

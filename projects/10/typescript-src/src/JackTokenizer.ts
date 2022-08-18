@@ -3,7 +3,7 @@ import * as fs from "fs";
 
 export class JackTokenizer {
   data: string[];
-  index = 0;
+  index = -1;
   token: string;
 
   constructor(path: string) {
@@ -23,7 +23,7 @@ export class JackTokenizer {
     if (!this.data) {
       return false;
     }
-    return this.index < this.data.length;
+    return this.index + 1 < this.data.length;
   }
 
   advance(): void {
@@ -32,7 +32,7 @@ export class JackTokenizer {
         "JackTokenizer#advance shouldn't be called when hasMoreTokens returns false!"
       );
     }
-    this.token = this.data[this.index++];
+    this.token = this.data[++this.index];
     console.log(`[L${this.index}] ${this.token}`);
   }
 
@@ -47,6 +47,13 @@ export class JackTokenizer {
     return this.data[this.index + 1];
   }
 
+  moreNextToken(): string {
+    if (this.index + 1 >= this.data.length) {
+      return "";
+    }
+    return this.data[this.index + 2];
+  }
+
   tokenType(): TokenType {
     if (keyWords.includes(this.token)) {
       return "keyword";
@@ -57,10 +64,10 @@ export class JackTokenizer {
     if (!isNaN(Number(this.token))) {
       return "integerConstant";
     }
-    if (this.token.match(/^[A-z_][A-z0-9_\S]*$/)) {
+    if (this.token && this.token.match(/^[A-z_][A-z0-9_\S]*$/)) {
       return "identifier";
     }
-    if (!this.token.includes('"') && !this.token.match(/\r?\n/)) {
+    if (this.token && !this.token.includes('"') && !this.token.match(/\r?\n/)) {
       return "stringConstant";
     }
     throw Error(`Invalid token type: ${this.token}`);
