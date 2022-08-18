@@ -4,7 +4,7 @@ import { CompilationEngine } from "./CompilationEngine";
 import { JackTokenizer } from "./JackTokenizer";
 import { VMWriter } from "./VMWriter";
 import xml2js from "xml2js";
-import { Command, Expression, operators } from "./type";
+import { Expression, operators } from "./type";
 
 const targetPath = process.argv.slice(2)[0];
 
@@ -81,24 +81,25 @@ for (const target of targets) {
             for (const st of body.statements) {
               // const doStatements = st.doStatement;
               const returnStatement = st.returnStatement;
+              if (typeof st.doStatement === "undefined") {
+                continue;
+              }
               for (const doStmt of st.doStatement) {
                 const exps = doStmt.expressionList[0].expression;
                 console.log(`do: ${JSON.stringify(doStmt)}`);
                 console.log(`expressionList: ${JSON.stringify(exps)}`);
 
-                console.log(`exp:`);
+                console.log("exp:");
                 for (const exp of exps) {
                   compileExpression(writer, exp);
                 }
-                console.log(`exp end`);
+                console.log("exp end");
 
                 writer.writeCall(
                   `${doStmt.identifier[0]}.${doStmt.identifier[1]}`,
                   exps.length
                 );
               }
-
-              console.log(returnStatement);
             }
           }
           if (retType === "void") {
@@ -127,17 +128,21 @@ function compileExpression(writer: VMWriter, expression: Expression) {
   const subExps = term.expression;
   console.log(term);
 
-  for (const intConst of intConsts) {
-    writer.writePush("constant", intConst);
-  }
-
-  if (subExps) {
-    for (const subExp of subExps) {
-      compileExpression(writer, subExp);
+  if (typeof intConsts !== "undefined") {
+    for (const intConst of intConsts) {
+      writer.writePush("constant", intConst);
     }
   }
 
-  if (operators.includes(symbols[0])) {
+  if (typeof subExps !== "undefined") {
+    if (subExps) {
+      for (const subExp of subExps) {
+        compileExpression(writer, subExp);
+      }
+    }
+  }
+
+  if (typeof symbols !== "undefined" && operators.includes(symbols[0])) {
     switch (symbols[0]) {
       case "+":
         writer.writeArithmetic("add");
