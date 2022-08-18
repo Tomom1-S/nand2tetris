@@ -165,6 +165,7 @@ export class CompilationEngine {
         this.tokenizer.symbol() === "("
       ) {
         this.compileParameterList();
+        continue;
       } else if (
         this.tokenizer.tokenType() === "symbol" &&
         this.tokenizer.symbol() === "{"
@@ -174,10 +175,8 @@ export class CompilationEngine {
         this.startBlock("subroutineBody");
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         this.pushResults(last!);
-        this.convertToken();
-      } else {
-        this.convertToken();
       }
+      this.convertToken();
     }
     this.endBlock("subroutineBody");
     this.endBlock(tag);
@@ -478,9 +477,10 @@ export class CompilationEngine {
           this.endBlock(t);
           // <symbol> } </symbol>
           this.convertToken();
-          continue;
+        } else {
+          this.compileStatements();
+          // this.tokenizer.advance();
         }
-        this.compileStatements();
       } else {
         this.convertToken();
       }
