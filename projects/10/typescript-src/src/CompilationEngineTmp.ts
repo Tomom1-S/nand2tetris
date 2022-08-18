@@ -20,17 +20,6 @@ export class CompilationEngineTmp {
     this.results.push(`${this.indentation.spaces()}${value}`);
   }
 
-  // FIXME: このメソッドを使わなくて済むように直す
-  // private popResults(): string {
-  //   const last = this.results.pop();
-  //   const regexp = /<.*/g;
-  //   const match = last?.match(regexp);
-  //   if (!match) {
-  //     return "";
-  //   }
-  //   return match[0];
-  // }
-
   /**
    * 開始タグを挿入
    * @param tag
@@ -228,6 +217,11 @@ export class CompilationEngineTmp {
     const tag = "statements";
     this.startBlock(tag);
 
+    // FIXME? 適切な場所までトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
+      this.tokenizer.advance();
+    }
+
     let token = this.tokenizer.currentToken();
     while (["do", "let", "while", "return", "if"].includes(token)) {
       switch (token) {
@@ -329,6 +323,15 @@ export class CompilationEngineTmp {
     const tag = "whileStatement";
     this.startBlock(tag);
 
+    // statement が2つ以上連続するときに、";"からトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
+      this.tokenizer.advance();
+    }
+
+    const type = this.tokenizer.tokenType();
+    // <keyword> while </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== "}"
@@ -339,7 +342,8 @@ export class CompilationEngineTmp {
         continue;
       } else if (this.tokenizer.currentToken() === ")") {
         this.convertToken(); // "{" を出力
-        this.compileExpression();
+        this.compileStatements();
+        this.convertToken(); // "}" を出力
         continue;
       }
       this.convertToken();
@@ -397,10 +401,9 @@ export class CompilationEngineTmp {
 
     while (
       this.tokenizer.hasMoreTokens() &&
-      !(
-        this.tokenizer.currentToken() === "}" &&
-        this.tokenizer.nextToken() !== "else"
-      )
+      (this.tokenizer.currentToken() !== "}" ||
+        (this.tokenizer.currentToken() === "}" &&
+          this.tokenizer.nextToken() === "else"))
     ) {
       if (this.tokenizer.currentToken() === "(") {
         this.compileExpression();
@@ -408,16 +411,13 @@ export class CompilationEngineTmp {
         continue;
       } else if (this.tokenizer.currentToken() === ")") {
         this.convertToken(); // "{" を出力
-
-        // TODO なおす
-        this.convertToken();
-        // this.compileStatements();
+        this.compileStatements();
+        this.convertToken(); // "}" を出力
         continue;
       }
       this.convertToken();
     }
 
-    // this.convertToken(); // "}"を出力
     this.endBlock(tag);
   }
 
@@ -433,7 +433,7 @@ export class CompilationEngineTmp {
     this.compileTerm();
     while (
       this.tokenizer.hasMoreTokens() &&
-      unaryOperators.includes(this.tokenizer.nextToken())
+      operators.includes(this.tokenizer.nextToken())
     ) {
       this.convertToken();
       this.compileTerm();
@@ -450,19 +450,22 @@ export class CompilationEngineTmp {
     const tag = "term";
     this.startBlock(tag);
 
-    // let endMarks;
-    // switch (this.tokenizer.nextToken()) {
-    //   case "(":
-    //     endMarks = [")"];
-    //     break;
-    //   case "[":
-    //     endMarks = ["]"];
-    //     break;
-    //   default:
-    //     endMarks = [")", "]", ";", ","];
-    // }
-    console.log(this.tokenizer.currentToken());
-    while (this.tokenizer.hasMoreTokens()) {
+    let endMarks;
+    switch (this.tokenizer.nextToken()) {
+      case "(":
+        endMarks = [")"];
+        break;
+      case "[":
+        endMarks = ["]"];
+        break;
+      default:
+        endMarks = [")", "]", ";", ","];
+    }
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      !endMarks.includes(this.tokenizer.nextToken())
+    ) {
       if (this.tokenizer.tokenType() === "identifier") {
         switch (this.tokenizer.nextToken()) {
           case "[":
@@ -486,14 +489,15 @@ export class CompilationEngineTmp {
             this.convertToken(); // ")"を出力
             break;
           default:
-            // 変数
-            this.convertToken();
+          // 変数のときは何もしない
         }
         this.endBlock(tag);
         return;
       }
-      if (unaryOperators.includes(this.tokenizer.currentToken())) {
-        // unaryOp + term
+      // unaryOp + term
+      if (unaryOperators.includes(this.tokenizer.nextToken())) {
+        this.convertToken(); // unaryOp
+        this.compileTerm();
         this.endBlock(tag);
         return;
       }
@@ -508,40 +512,6 @@ export class CompilationEngineTmp {
 
       this.convertToken();
     }
-
-    // 一旦置き
-    // while (!endMarks.includes(this.tokenizer.nextToken())) {
-    //   switch (this.tokenizer.nextToken()) {
-    //     case "[":
-    //       this.convertToken(); // "["を出力
-    //       this.compileExpression();
-    //       this.convertToken(); // "]"を出力
-    //       this.endBlock(tag);
-    //       return;
-    //     case "(":
-    //       this.convertToken(); // "("を出力
-    //       this.compileExpressionList();
-    //       this.convertToken(); // ")"を出力
-    //       this.endBlock(tag);
-    //       return;
-    //     case ".":
-    //       this.convertToken(); // "."を出力
-    //       this.convertToken(); // メソッド名を出力
-    //       this.convertToken(); // "("を出力
-    //       this.compileExpressionList();
-    //       this.convertToken(); // ")"を出力
-    //       break;
-    //     default:
-    //       if (unaryOperators.includes(this.tokenizer.nextToken())) {
-    //         this.convertToken();
-    //         this.compileTerm();
-    //         this.endBlock(tag);
-    //         return;
-    //       } else {
-    //         this.convertToken();
-    //       }
-    //   }
-    // }
 
     this.endBlock(tag);
   }
@@ -563,7 +533,6 @@ export class CompilationEngineTmp {
         this.convertToken();
         continue;
       }
-      // FIXME ここまできてる
       this.compileExpression();
     }
 
