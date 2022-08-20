@@ -63,7 +63,7 @@ export type SymbolCategory =
   | "class"
   | "subroutine";
 
-export type SymbolKind = "STATIC" | "FIELD" | "ARG" | "VAR";
+export type SymbolKind = "static" | "field" | "argument" | "var";
 
 export type Segment =
   | "constant"

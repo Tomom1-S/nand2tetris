@@ -45,64 +45,77 @@ for (const target of targets) {
   parser.parseString(engine.results, function (error, result) {
     if (error) {
       throw new Error(error.message);
-    } else {
-      console.log(`RESULT.class ${JSON.stringify(result.class)}`);
-      const className = result.class.identifier[0];
+    }
 
-      const cvDec = result.class.classVarDec;
-      if (cvDec) {
-        for (const c of cvDec) {
-          console.log(`cvDec: ${JSON.stringify(c)}`);
-        }
-      }
+    const className = result.class.identifier[0];
 
-      const sbDec = result.class.subroutineDec;
-      if (sbDec) {
-        for (const s of sbDec) {
-          console.log(`sbDec: ${JSON.stringify(s)}`);
-          const keywords = s.keyword;
-          const sbType = keywords[0];
-          const retType = keywords[1];
-          console.log(`type: ${sbType}, ret: ${retType}`);
+    // クラス変数の定義
+    const cvDec = result.class.classVarDec;
+    if (cvDec) {
+      // TODO なんかする
+    }
 
-          const identifiers = s.identifier;
-          const sbName = identifiers[0];
-          const symbols = s.symbol;
-          console.log(symbols);
-          const params = s.parameterList.filter((e: string) => {
-            return e !== ",";
-          });
-          console.log(params);
-          writer.writeFunction(`${className}.${sbName}`, params.length);
+    const sbDec = result.class.subroutineDec;
+    if (sbDec) {
+      for (const s of sbDec) {
+        // console.log(`sbDec: ${JSON.stringify(s)}`);
+        const keywords = s.keyword;
+        const sbType = keywords[0];
+        const retType = keywords[1];
+        // console.log(`type: ${sbType}, ret: ${retType}`);
 
-          for (const body of s.subroutineBody) {
-            for (const st of body.statements) {
-              // const doStatements = st.doStatement;
-              const returnStatement = st.returnStatement;
-              if (typeof st.doStatement === "undefined") {
-                continue;
-              }
-              for (const doStmt of st.doStatement) {
-                const exps = doStmt.expressionList[0].expression;
-                console.log(`do: ${JSON.stringify(doStmt)}`);
-                console.log(`expressionList: ${JSON.stringify(exps)}`);
+        const identifiers = s.identifier;
+        const sbName = identifiers[0];
+        const symbols = s.symbol;
+        // console.log(symbols);
+        const params = s.parameterList.filter((e: string) => {
+          return e !== ",";
+        });
+        // console.log(params);
+        writer.writeFunction(`${className}.${sbName}`, params.length);
 
-                for (const exp of exps) {
-                  compileExpression(writer, exp);
-                }
+        for (const body of s.subroutineBody) {
+          // TODO パラメータリストを扱う
 
-                writer.writeCall(
-                  `${doStmt.identifier[0]}.${doStmt.identifier[1]}`,
-                  exps.length
-                );
-              }
+          // サブルーチン変数定義
+          const varDecs = body.varDec;
+          if (varDecs) {
+            for (const v of varDecs) {
+              // console.log(`CLASS_VAR ${JSON.stringify(v)}`);
+              // v.identifier.map((name: string) => {
+              //   symbolTable.define(name, v.keyword[1], v.keyword[0]);
+              // });
             }
           }
-          if (retType === "void") {
-            writer.writePush("constant", 0);
+
+          for (const st of body.statements) {
+            // console.log(`statements: ${st}`);
+
+            // TODO void 以外のリターン文
+            const returnStatement = st.returnStatement;
+            if (typeof st.doStatement === "undefined") {
+              continue;
+            }
+            for (const doStmt of st.doStatement) {
+              const exps = doStmt.expressionList[0].expression;
+              // console.log(`do: ${JSON.stringify(doStmt)}`);
+              // console.log(`expressionList: ${JSON.stringify(exps)}`);
+
+              for (const exp of exps) {
+                compileExpression(writer, exp);
+              }
+
+              writer.writeCall(
+                `${doStmt.identifier[0]}.${doStmt.identifier[1]}`,
+                exps.length
+              );
+            }
           }
-          writer.writeReturn();
         }
+        if (retType === "void") {
+          writer.writePush("constant", 0);
+        }
+        writer.writeReturn();
       }
     }
   });
@@ -115,7 +128,7 @@ function compileExpression(writer: VMWriter, expression: Expression) {
   const intConsts = term.integerConstant;
   const symbols = term.symbol;
   const subExps = term.expression;
-  console.log(term);
+  // console.log(term);
 
   if (typeof intConsts !== "undefined") {
     for (const intConst of intConsts) {

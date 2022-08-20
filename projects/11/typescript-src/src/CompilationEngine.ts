@@ -17,8 +17,9 @@ export class CompilationEngine {
 
   constructor(tokenizer: JackTokenizer, outputPath: string) {
     this.tokenizer = tokenizer;
-    this.symbolTable = new SymbolTable();
     this.outputPath = outputPath;
+
+    this.symbolTable = new SymbolTable();
   }
 
   private pushResults(value: string): void {
@@ -80,6 +81,10 @@ export class CompilationEngine {
             this.compileStatements();
             return;
         }
+        // その他のキーワードの場合、変数の型になる
+        if (typeof this.id !== "undefined") {
+          this.id.type = value;
+        }
         break;
       case "symbol":
         value = this.tokenizer.symbol();
@@ -88,25 +93,44 @@ export class CompilationEngine {
         value = this.tokenizer.identifier();
 
         const cat = this.symbolTable.kindOf(value);
-        if (typeof this.id === "undefined" && cat !== "NONE") {
+        if (typeof this.id === "undefined" && cat !== "none") {
           // do nothing
         } else if (typeof this.id === "undefined") {
           break;
-        } else if (cat === "NONE" && typeof this.id.type === "undefined") {
+        } else if (cat === "none" && typeof this.id.type === "undefined") {
           this.id.type = value;
           break;
         } else if (
-          cat === "NONE" &&
+          cat === "none" &&
           this.id.cat !== "class" &&
           this.id.cat !== "subroutine"
         ) {
-          this.symbolTable.define(
-            value,
-            this.id.type!,
-            this.getSymbolKind(this.id.cat!)
-          );
+          this.symbolTable.define(value, this.id.type!, this.id.cat!);
         }
-        break;
+
+        this.startBlock(type);
+        this.pushResults(`<name>${value}</name>`);
+        const symbolKind = this.symbolTable.kindOf(value);
+        // 識別子のカテゴリ(var、argument、static、field、class、subroutine)
+        this.pushResults(
+          `<category>${this.id ? this.id.cat : symbolKind}</category>`
+        );
+        if (symbolKind !== "none") {
+          // 識別子の属性
+          this.pushResults(`<kind>${symbolKind}</kind>`);
+          // 識別子は定義されているか(var) or 使用されているか
+          if (typeof this.id === "undefined" || this.id.cat === "var") {
+            this.pushResults(
+              `<role>${
+                this.id && this.id?.cat === "var" ? "defined" : "used"
+              }</role>`
+            );
+          }
+          // シンボルテーブルの実行番号
+          this.pushResults(`<index>${this.symbolTable.indexOf(value)}</index>`);
+        }
+        this.endBlock(type);
+        return;
       }
       case "integerConstant":
         value = this.tokenizer.intVal();
@@ -223,13 +247,14 @@ export class CompilationEngine {
     this.startBlock(tag);
 
     // id の情報が不要になったので id をクリア
-    this.id = undefined;
+    this.id = {
+      cat: "argument",
+    };
 
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.nextToken() !== ")"
     ) {
-      this.id = this.id ? this.id : { cat: "argument" };
       this.convertToken();
     }
 
@@ -604,25 +629,5 @@ export class CompilationEngine {
     }
 
     this.endBlock(tag);
-  }
-
-  /**
-   * シンボルの種類を取得
-   * @param cat シンボルのカテゴリ
-   * @returns シンボルの種類
-   */
-  private getSymbolKind(cat: string): SymbolKind {
-    switch (cat) {
-      case "var":
-        return "VAR";
-      case "argument":
-        return "ARG";
-      case "static":
-        return "STATIC";
-      case "field":
-        return "FIELD";
-      default:
-        throw new Error(`${cat}: invalid SymbolKind`);
-    }
   }
 }

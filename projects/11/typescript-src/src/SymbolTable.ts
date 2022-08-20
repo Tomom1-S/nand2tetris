@@ -33,20 +33,24 @@ export class SymbolTable {
    * @param kind 識別子の属性
    */
   define(name: string, type: string, kind: SymbolKind): void {
-    if (this.kindOf(name) !== "NONE") {
+    if (this.kindOf(name) !== "none") {
       throw new Error(`${name} is already defined!`);
     }
 
     const index = this.varCount(kind);
     switch (kind) {
-      case "STATIC":
-      case "FIELD":
+      case "static":
+      case "field":
+        console.log(name);
         this.table.klass.push({ name, type, kind, index });
         break;
-      case "ARG":
-      case "VAR":
+      case "argument":
+      case "var":
+        console.log(name);
         this.table.subroutine.push({ name, type, kind, index });
         break;
+      default:
+        console.log(kind);
     }
   }
 
@@ -74,14 +78,14 @@ export class SymbolTable {
    * @param name 識別子の名前
    * @returns 識別子の属性、現在のスコープで見つからなければ NONE を返す
    */
-  kindOf(name: string): SymbolKind | "NONE" {
+  kindOf(name: string): SymbolKind | "none" {
     const kind = [...this.table.subroutine, ...this.table.klass]
       .filter((e) => e)
       .find((elem) => elem.name === name)?.kind;
     if (typeof kind !== "undefined") {
       return kind;
     }
-    return "NONE";
+    return "none";
   }
 
   /**
