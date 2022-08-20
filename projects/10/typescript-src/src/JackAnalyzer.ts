@@ -1,6 +1,5 @@
 import path from "path";
 import { CompilationEngine } from "./CompilationEngine";
-import { CompilationEngineTmp } from "./CompilationEngineTmp";
 import { JackTokenizer } from "./JackTokenizer";
 
 const main = async () => {
@@ -14,7 +13,7 @@ const main = async () => {
   const tokenizer = new JackTokenizer(target);
   const parsedTarget = path.parse(target);
   // const engine = new CompilationEngine(
-  const engine = new CompilationEngineTmp(
+  const engine = new CompilationEngine(
     tokenizer,
     `${parsedTarget.dir}/${parsedTarget.name}.xml`
   );
