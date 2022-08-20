@@ -94,16 +94,7 @@ export class JackTokenizer {
         )}`
       );
     }
-    switch (this.token) {
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case "&":
-        return "&amp;";
-      default:
-        return this.token;
-    }
+    return this.token;
   }
 
   identifier(): string {

@@ -39,7 +39,7 @@ for (const target of targets) {
     writer,
     `${parsedTarget.dir}/${parsedTarget.name}.xml`
   );
-  engine.compileClass();
+  engine.convertToken();
 
   /*
   const parser = new xml2js.Parser();
