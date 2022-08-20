@@ -39,16 +39,15 @@ for (const target of targets) {
   );
   engine.compileClass();
 
-  const xmls = engine.results;
   const writer = new VMWriter(`${parsedTarget.dir}/${parsedTarget.name}.vm`);
 
   const parser = new xml2js.Parser();
   parser.parseString(engine.results, function (error, result) {
     if (error) {
-      console.log(error.message);
+      throw new Error(error.message);
     } else {
-      console.log(result);
-      const className = result.class.identifier[0].name;
+      console.log(`RESULT.class ${JSON.stringify(result.class)}`);
+      const className = result.class.identifier[0];
 
       const cvDec = result.class.classVarDec;
       if (cvDec) {
@@ -67,8 +66,7 @@ for (const target of targets) {
           console.log(`type: ${sbType}, ret: ${retType}`);
 
           const identifiers = s.identifier;
-          const sbName = identifiers[0].name;
-          console.log(`name: ${sbName}`);
+          const sbName = identifiers[0];
           const symbols = s.symbol;
           console.log(symbols);
           const params = s.parameterList.filter((e: string) => {
@@ -89,11 +87,9 @@ for (const target of targets) {
                 console.log(`do: ${JSON.stringify(doStmt)}`);
                 console.log(`expressionList: ${JSON.stringify(exps)}`);
 
-                console.log("exp:");
                 for (const exp of exps) {
                   compileExpression(writer, exp);
                 }
-                console.log("exp end");
 
                 writer.writeCall(
                   `${doStmt.identifier[0]}.${doStmt.identifier[1]}`,
@@ -110,14 +106,7 @@ for (const target of targets) {
       }
     }
   });
-  // console.log()
-  // let line = 0;
-  // const className;
-  // while (line < xmls.length) {
-  //   const xml = xmls[line];
-  //   switch ()
-  //   line++;
-  // }
+
   writer.close();
 }
 
