@@ -1,41 +1,23 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as fs from "fs";
 import { Indentation } from "./Indentation";
 import { JackTokenizer } from "./JackTokenizer";
-import { SymbolTable } from "./SymbolTable";
-import { SymbolKind, operators, unaryOperators, SymbolCategory } from "./type";
+import { operators, unaryOperators } from "./type";
 
 const SEPARATOR = "\n";
 
 export class CompilationEngine {
   tokenizer: JackTokenizer;
-  symbolTable: SymbolTable;
   outputPath: string;
   indentation = new Indentation();
   results: string[] = [];
 
-  id: { cat: SymbolCategory; type?: string } | undefined;
-
   constructor(tokenizer: JackTokenizer, outputPath: string) {
     this.tokenizer = tokenizer;
     this.outputPath = outputPath;
-    this.symbolTable = new SymbolTable();
   }
 
   private pushResults(value: string): void {
-    this.results.push(value);
-    // this.results.push(`${this.indentation.spaces()}${value}`);
-  }
-
-  // FIXME: このメソッドを使わなくて済むように直す
-  private popResults(): string {
-    const last = this.results.pop();
-    const regexp = /<.*/g;
-    const match = last?.match(regexp);
-    if (!match) {
-      return "";
-    }
-    return match[0];
+    this.results.push(`${this.indentation.spaces()}${value}`);
   }
 
   /**
@@ -92,62 +74,13 @@ export class CompilationEngine {
             this.compileStatements();
             return;
         }
-        if (typeof this.id !== "undefined") {
-          this.id.type = value;
-        }
         break;
       case "symbol":
         value = this.tokenizer.symbol();
         break;
-      case "identifier": {
+      case "identifier":
         value = this.tokenizer.identifier();
-
-        const cat = this.symbolTable.kindOf(value);
-        if (typeof this.id === "undefined" && cat !== "NONE") {
-          // do nothing
-        } else if (typeof this.id === "undefined") {
-          break;
-        } else if (cat === "NONE" && typeof this.id.type === "undefined") {
-          this.id.type = value;
-          break;
-        } else if (
-          cat === "NONE" &&
-          this.id.cat !== "class" &&
-          this.id.cat !== "subroutine"
-        ) {
-          this.symbolTable.define(
-            value,
-            this.id.type!,
-            this.getSymbolKind(this.id.cat!)
-          );
-        }
-
-        this.startBlock(type);
-        this.pushResults(`<name>${value}</name>`);
-        const symbolKind = this.symbolTable.kindOf(value);
-        // 識別子のカテゴリ(var、argument、static、field、class、subroutine)
-        this.pushResults(
-          `<category>${
-            this.id ? this.id.cat : symbolKind.toLowerCase()
-          }</category>`
-        );
-        if (symbolKind !== "NONE") {
-          // 識別子の属性
-          this.pushResults(`<kind>${symbolKind.toLowerCase()}</kind>`);
-          // 識別子は定義されているか(var) or 使用されているか
-          if (typeof this.id === "undefined" || this.id.cat === "var") {
-            this.pushResults(
-              `<role>${
-                this.id && this.id?.cat === "var" ? "defined" : "used"
-              }</role>`
-            );
-          }
-          // シンボルテーブルの実行番号
-          this.pushResults(`<index>${this.symbolTable.indexOf(value)}</index>`);
-        }
-        this.endBlock(type);
-        return;
-      }
+        break;
       case "integerConstant":
         value = this.tokenizer.intVal();
         break;
@@ -155,7 +88,7 @@ export class CompilationEngine {
         value = this.tokenizer.stringVal();
         break;
     }
-    this.pushResults(`<${type}>${value}</${type}>`);
+    this.pushResults(`<${type}> ${value} </${type}>`);
   }
 
   /**
@@ -167,16 +100,11 @@ export class CompilationEngine {
     const tag = "class";
     this.startBlock(tag);
 
-    this.id = { cat: "class" };
-
     while (this.tokenizer.hasMoreTokens()) {
       this.convertToken();
     }
     this.endBlock(tag);
     this.pushResults("");
-
-    // id の情報が不要になったので id をクリア
-    this.id = undefined;
 
     fs.writeFileSync(this.outputPath, this.results.join(SEPARATOR));
     console.log(`Compiled: ${this.outputPath}`);
@@ -191,29 +119,17 @@ export class CompilationEngine {
     const tag = "classVarDec";
     this.startBlock(tag);
 
-    const keyWord = this.tokenizer.keyWord();
-    if (keyWord !== "field" && keyWord !== "static") {
-      throw new Error(`${keyWord}: invalid keyWord`);
-    }
     const type = this.tokenizer.tokenType();
-    // <keyword>{ static | field }</keyword>
-    this.pushResults(`<${type}>${keyWord}</${type}>`);
-
-    this.id = {
-      cat: keyWord,
-    };
-
+    // <keyword> { static | field } </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
-      (!(this.tokenizer.tokenType() === "symbol") ||
-        !(this.tokenizer.symbol() === ";"))
+      this.tokenizer.currentToken() !== ";"
     ) {
       this.convertToken();
     }
-    this.endBlock(tag);
 
-    // id の情報が不要になったので id をクリア
-    this.id = undefined;
+    this.endBlock(tag);
   }
 
   /**
@@ -222,43 +138,31 @@ export class CompilationEngine {
    * (’constructor’ | ’function’ | ’method’) (’void’ | type) subroutineName ’(’ parameterList ’)’ subroutineBody
    */
   compileSubroutine(): void {
-    this.symbolTable.startSubroutine();
-    this.id = { cat: "subroutine" };
-
-    const tag = "subroutineDec";
-    this.startBlock(tag);
+    const decTag = "subroutineDec";
+    this.startBlock(decTag);
+    const bodyTag = "subroutineBody";
 
     const type = this.tokenizer.tokenType();
-    // <keyword>{ constructor | function | method }</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // <keyword> constructor/function/method </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
-      (!(this.tokenizer.tokenType() === "symbol") ||
-        !(this.tokenizer.symbol() === "}"))
+      this.tokenizer.nextToken() !== "}"
     ) {
-      if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "("
-      ) {
+      if (this.tokenizer.currentToken() === "(") {
         this.compileParameterList();
-      } else if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "{"
-      ) {
-        // { は subroutineBody の要素に入れる
-        const last = this.popResults();
-        this.startBlock("subroutineBody");
-        this.pushResults(last!);
-        this.convertToken();
-      } else {
-        this.convertToken();
+        this.convertToken(); // ")" を出力
+        continue;
+      } else if (this.tokenizer.currentToken() === ")") {
+        this.startBlock(bodyTag);
+        this.convertToken(); // "{" を出力
+        continue;
       }
+      this.convertToken();
     }
-    this.endBlock("subroutineBody");
-    this.endBlock(tag);
-
-    // id の情報が不要になったので id をクリア
-    this.id = undefined;
+    this.convertToken(); // "}" を出力
+    this.endBlock(bodyTag);
+    this.endBlock(decTag);
   }
 
   /**
@@ -270,26 +174,14 @@ export class CompilationEngine {
     const tag = "parameterList";
     this.startBlock(tag);
 
-    // id の情報が不要になったので id をクリア
-    this.id = undefined;
-
     while (
       this.tokenizer.hasMoreTokens() &&
-      !(
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === ")"
-      )
+      this.tokenizer.nextToken() !== ")"
     ) {
-      this.id = this.id ? this.id : { cat: "argument" };
       this.convertToken();
     }
-    // ) は parameterList の要素に入れない
-    const last = this.popResults();
-    this.endBlock(tag);
-    this.pushResults(last!);
 
-    // id の情報が不要になったので id をクリア
-    this.id = undefined;
+    this.endBlock(tag);
   }
 
   /**
@@ -301,29 +193,17 @@ export class CompilationEngine {
     const tag = "varDec";
     this.startBlock(tag);
 
-    const keyWord = this.tokenizer.keyWord();
-    if (keyWord !== "var") {
-      throw new Error(`${keyWord}: invalid keyWord`);
-    }
     const type = this.tokenizer.tokenType();
-    // <keyword>var</keyword>
-    this.pushResults(`<${type}>${keyWord}</${type}>`);
-
-    this.id = {
-      cat: keyWord,
-    };
-
+    // <keyword> var </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
-      (!(this.tokenizer.tokenType() === "symbol") ||
-        !(this.tokenizer.symbol() === ";"))
+      this.tokenizer.currentToken() !== ";"
     ) {
       this.convertToken();
     }
-    this.endBlock(tag);
 
-    // id の情報が不要になったので id をクリア
-    this.id = undefined;
+    this.endBlock(tag);
   }
 
   /**
@@ -337,17 +217,14 @@ export class CompilationEngine {
     const tag = "statements";
     this.startBlock(tag);
 
-    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
-    if (
-      this.tokenizer.hasMoreTokens() &&
-      this.tokenizer.tokenType() !== "keyword"
-    ) {
+    // FIXME? 適切な場所までトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
-    let currentToken = this.tokenizer.keyWord();
-    while (["do", "let", "while", "return", "if"].includes(currentToken)) {
-      switch (currentToken) {
+    let token = this.tokenizer.currentToken();
+    while (["do", "let", "while", "return", "if"].includes(token)) {
+      switch (token) {
         case "do":
           this.compileDo();
           break;
@@ -364,7 +241,7 @@ export class CompilationEngine {
           this.compileIf();
           break;
       }
-      currentToken = this.tokenizer.currentToken();
+      token = this.tokenizer.nextToken();
     }
     this.endBlock(tag);
   }
@@ -378,30 +255,27 @@ export class CompilationEngine {
     const tag = "doStatement";
     this.startBlock(tag);
 
-    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
-    while (
-      this.tokenizer.hasMoreTokens() &&
-      this.tokenizer.tokenType() !== "keyword"
-    ) {
+    // statement が2つ以上連続するときに、";"からトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword>do</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // <keyword> do </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+
     while (
       this.tokenizer.hasMoreTokens() &&
-      (!(this.tokenizer.tokenType() === "symbol") ||
-        !(this.tokenizer.symbol() === ";"))
+      this.tokenizer.currentToken() !== ";"
     ) {
-      if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "("
-      ) {
+      if (this.tokenizer.currentToken() === "(") {
         this.compileExpressionList();
+        this.convertToken(); // ")" を出力
+        continue;
       }
       this.convertToken();
     }
+
     this.endBlock(tag);
   }
 
@@ -414,35 +288,29 @@ export class CompilationEngine {
     const tag = "letStatement";
     this.startBlock(tag);
 
-    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
-    if (
-      this.tokenizer.hasMoreTokens() &&
-      this.tokenizer.tokenType() !== "keyword"
-    ) {
+    // statement が2つ以上連続するときに、";"からトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword>let</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // <keyword> let </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+
     while (
       this.tokenizer.hasMoreTokens() &&
-      (!(this.tokenizer.tokenType() === "symbol") ||
-        !(this.tokenizer.symbol() === ";"))
+      this.tokenizer.currentToken() !== ";"
     ) {
       if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "["
+        this.tokenizer.currentToken() === "[" ||
+        this.tokenizer.currentToken() === "="
       ) {
         this.compileExpression();
-      } else if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "="
-      ) {
-        this.compileExpression();
+        continue;
       }
       this.convertToken();
     }
+
     this.endBlock(tag);
   }
 
@@ -455,44 +323,32 @@ export class CompilationEngine {
     const tag = "whileStatement";
     this.startBlock(tag);
 
-    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
-    while (
-      this.tokenizer.hasMoreTokens() &&
-      this.tokenizer.tokenType() !== "keyword"
-    ) {
+    // statement が2つ以上連続するときに、";"からトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword>while</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // <keyword> while </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
-      (this.tokenizer.tokenType() !== "symbol" ||
-        this.tokenizer.symbol() !== "}")
+      this.tokenizer.currentToken() !== "}"
     ) {
-      this.convertToken();
-      if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "("
-      ) {
+      if (this.tokenizer.currentToken() === "(") {
         this.compileExpression();
-      } else if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "{"
-      ) {
-        // {} 内の statements がなければ {} の間には何も入れない
-        if (this.tokenizer.currentToken() === "}") {
-          this.convertToken();
-          this.endBlock(tag);
-          return;
-        }
+        this.convertToken(); // ")" を出力
+        continue;
+      } else if (this.tokenizer.currentToken() === ")") {
+        this.convertToken(); // "{" を出力
         this.compileStatements();
-        // <symbol>}</symbol>
-        this.convertToken();
+        this.convertToken(); // "}" を出力
+        continue;
       }
+      this.convertToken();
     }
+
     this.endBlock(tag);
   }
 
@@ -505,25 +361,23 @@ export class CompilationEngine {
     const tag = "returnStatement";
     this.startBlock(tag);
 
-    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
-    while (
-      this.tokenizer.hasMoreTokens() &&
-      this.tokenizer.tokenType() !== "keyword"
-    ) {
+    // statement が2つ以上連続するときに、";"からトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword>return</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // <keyword> return </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
 
-    let currentToken = this.tokenizer.currentToken();
-    while (currentToken !== ";") {
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.nextToken() !== ";"
+    ) {
       this.compileExpression();
-      currentToken = this.tokenizer.currentToken();
     }
-    // <symbol>;</symbol>
-    this.convertToken();
+    this.convertToken(); // ";"を出力
+
     this.endBlock(tag);
   }
 
@@ -536,51 +390,32 @@ export class CompilationEngine {
     const tag = "ifStatement";
     this.startBlock(tag);
 
-    // FIXME: JackTokenizer.keyWord() 呼び出しのため、適切なトークンまで進める
-    while (
-      this.tokenizer.hasMoreTokens() &&
-      this.tokenizer.tokenType() !== "keyword"
-    ) {
+    // statement が2つ以上連続するときに、";"からトークンを進める
+    if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword>if</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // <keyword> if </keyword>
+    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
 
-    let currentToken = this.tokenizer.currentToken();
     while (
       this.tokenizer.hasMoreTokens() &&
-      !(
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "}" &&
-        // } の後に else が続く場合は、if 文のコンパイルを続ける
-        currentToken !== "else"
-      )
+      (this.tokenizer.currentToken() !== "}" ||
+        (this.tokenizer.currentToken() === "}" &&
+          this.tokenizer.nextToken() === "else"))
     ) {
-      if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "("
-      ) {
+      if (this.tokenizer.currentToken() === "(") {
         this.compileExpression();
-      } else if (
-        this.tokenizer.tokenType() === "symbol" &&
-        this.tokenizer.symbol() === "{"
-      ) {
-        if (this.tokenizer.currentToken() === "}") {
-          // {} 内の statements がなくても、statements のタグは入れる
-          const t = "statements";
-          this.startBlock(t);
-          this.endBlock(t);
-          // <symbol>}</symbol>
-          this.convertToken();
-          continue;
-        }
+        this.convertToken(); // ")" を出力
+        continue;
+      } else if (this.tokenizer.currentToken() === ")") {
+        this.convertToken(); // "{" を出力
         this.compileStatements();
-      } else {
-        this.convertToken();
+        this.convertToken(); // "}" を出力
+        continue;
       }
-      currentToken = this.tokenizer.currentToken();
+      this.convertToken();
     }
 
     this.endBlock(tag);
@@ -595,26 +430,14 @@ export class CompilationEngine {
     const tag = "expression";
     this.startBlock(tag);
 
-    let count = 0;
-    let currentToken = this.tokenizer.currentToken();
+    this.compileTerm();
     while (
       this.tokenizer.hasMoreTokens() &&
-      ![")", "]", ";", ","].includes(currentToken)
+      operators.includes(this.tokenizer.nextToken())
     ) {
-      const type = this.tokenizer.tokenType();
-      if (type === "keyword" || type === "symbol") {
-        // expression の途中に出てくる演算子は、term に含まない
-        if (count > 0 && operators.includes(currentToken)) {
-          this.convertToken();
-        }
-        this.compileTerm();
-      } else {
-        this.convertToken();
-      }
-      currentToken = this.tokenizer.currentToken();
-      count++;
+      this.convertToken();
+      this.compileTerm();
     }
-
     this.endBlock(tag);
   }
 
@@ -627,53 +450,69 @@ export class CompilationEngine {
     const tag = "term";
     this.startBlock(tag);
 
-    let currentToken = this.tokenizer.currentToken();
-    // かっこ始まりの並びのとき、最後にかっこで閉じるための準備
-    let endMark;
-    switch (currentToken) {
+    let endMarks;
+    switch (this.tokenizer.nextToken()) {
       case "(":
-        endMark = [")"];
+        endMarks = [")"];
         break;
       case "[":
-        endMark = ["]"];
+        endMarks = ["]"];
         break;
       default:
-        endMark = [")", "]", ";", ","];
+        endMarks = [")", "]", ";", ","];
     }
-    while (this.tokenizer.hasMoreTokens() && !endMark.includes(currentToken)) {
+
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      !endMarks.includes(this.tokenizer.nextToken())
+    ) {
       if (this.tokenizer.tokenType() === "identifier") {
-        switch (this.tokenizer.currentToken()) {
+        switch (this.tokenizer.nextToken()) {
           case "[":
-            // <symbol>[</symbol>
-            this.convertToken();
+            // 配列 varName ’[’ expression ’]’
+            this.convertToken(); // "["を出力
             this.compileExpression();
+            this.convertToken(); // "]"を出力
             break;
           case "(":
-            // <symbol>(</symbol>
-            this.convertToken();
+            // サブルーチン呼び出しの引数
+            this.convertToken(); // "("を出力
             this.compileExpressionList();
+            this.convertToken(); // ")"を出力
             break;
           case ".":
+            // クラス、オブジェクトのサブルーチン呼び出し
+            this.convertToken(); // "."を出力
+            this.convertToken(); // クラス/オブジェクト名を出力
+            this.convertToken(); // "("を出力
+            this.compileExpressionList();
+            this.convertToken(); // ")"を出力
             break;
           default:
-            // 配列、サブルーチン呼び出しではないとき
-            this.endBlock(tag);
-            return;
+          // 変数のときは何もしない
         }
-      } else if (unaryOperators.includes(currentToken)) {
-        this.convertToken();
+        this.endBlock(tag);
+        return;
+      }
+      // unaryOp + term
+      if (unaryOperators.includes(this.tokenizer.nextToken())) {
+        this.convertToken(); // unaryOp
         this.compileTerm();
         this.endBlock(tag);
         return;
-      } else if (["(", "["].includes(currentToken)) {
-        this.convertToken();
-        this.compileExpression();
-        this.convertToken();
-        break;
       }
+      // ’(’ expression ’)’
+      if (this.tokenizer.nextToken() === "(") {
+        this.convertToken(); // "("を出力
+        this.compileExpression();
+        this.convertToken(); // ")"を出力
+        this.endBlock(tag);
+        return;
+      }
+
       this.convertToken();
-      currentToken = this.tokenizer.currentToken();
     }
+
     this.endBlock(tag);
   }
 
@@ -686,31 +525,17 @@ export class CompilationEngine {
     const tag = "expressionList";
     this.startBlock(tag);
 
-    let currentToken = this.tokenizer.currentToken();
-    while (this.tokenizer.hasMoreTokens() && ![")"].includes(currentToken)) {
-      if (currentToken === ",") {
-        // <symbol>,</symbol>
+    while (
+      this.tokenizer.hasMoreTokens() &&
+      this.tokenizer.nextToken() !== ")"
+    ) {
+      if (this.tokenizer.nextToken() === ",") {
         this.convertToken();
-      } else {
-        this.compileExpression();
+        continue;
       }
-      currentToken = this.tokenizer.currentToken();
+      this.compileExpression();
     }
-    this.endBlock(tag);
-  }
 
-  private getSymbolKind(cat: string): SymbolKind {
-    switch (cat) {
-      case "var":
-        return "VAR";
-      case "argument":
-        return "ARG";
-      case "static":
-        return "STATIC";
-      case "field":
-        return "FIELD";
-      default:
-        throw new Error(`${cat}: invalid SymbolKind`);
-    }
+    this.endBlock(tag);
   }
 }
