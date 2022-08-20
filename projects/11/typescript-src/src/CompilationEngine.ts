@@ -1,23 +1,29 @@
 import * as fs from "fs";
 import { Indentation } from "./Indentation";
 import { JackTokenizer } from "./JackTokenizer";
-import { operators, unaryOperators } from "./type";
+import { SymbolTable } from "./SymbolTable";
+import { operators, SymbolCategory, SymbolKind, unaryOperators } from "./type";
 
 const SEPARATOR = "\n";
 
 export class CompilationEngine {
   tokenizer: JackTokenizer;
+  symbolTable: SymbolTable;
   outputPath: string;
   indentation = new Indentation();
   results: string[] = [];
 
+  id: { cat: SymbolCategory; type?: string } | undefined;
+
   constructor(tokenizer: JackTokenizer, outputPath: string) {
     this.tokenizer = tokenizer;
+    this.symbolTable = new SymbolTable();
     this.outputPath = outputPath;
   }
 
   private pushResults(value: string): void {
-    this.results.push(`${this.indentation.spaces()}${value}`);
+    this.results.push(value);
+    // this.results.push(`${this.indentation.spaces()}${value}`);
   }
 
   /**
@@ -26,7 +32,7 @@ export class CompilationEngine {
    */
   private startBlock(tag: string): void {
     this.pushResults(`<${tag}>`);
-    this.indentation.indent();
+    // this.indentation.indent();
   }
 
   /**
@@ -34,7 +40,7 @@ export class CompilationEngine {
    * @param tag
    */
   private endBlock(tag: string): void {
-    this.indentation.outdent();
+    // this.indentation.outdent();
     this.pushResults(`</${tag}>`);
   }
 
@@ -78,9 +84,30 @@ export class CompilationEngine {
       case "symbol":
         value = this.tokenizer.symbol();
         break;
-      case "identifier":
+      case "identifier": {
         value = this.tokenizer.identifier();
+
+        const cat = this.symbolTable.kindOf(value);
+        if (typeof this.id === "undefined" && cat !== "NONE") {
+          // do nothing
+        } else if (typeof this.id === "undefined") {
+          break;
+        } else if (cat === "NONE" && typeof this.id.type === "undefined") {
+          this.id.type = value;
+          break;
+        } else if (
+          cat === "NONE" &&
+          this.id.cat !== "class" &&
+          this.id.cat !== "subroutine"
+        ) {
+          this.symbolTable.define(
+            value,
+            this.id.type!,
+            this.getSymbolKind(this.id.cat!)
+          );
+        }
         break;
+      }
       case "integerConstant":
         value = this.tokenizer.intVal();
         break;
@@ -88,7 +115,7 @@ export class CompilationEngine {
         value = this.tokenizer.stringVal();
         break;
     }
-    this.pushResults(`<${type}> ${value} </${type}>`);
+    this.pushResults(`<${type}>${value}</${type}>`);
   }
 
   /**
@@ -106,6 +133,9 @@ export class CompilationEngine {
     this.endBlock(tag);
     this.pushResults("");
 
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
+
     fs.writeFileSync(this.outputPath, this.results.join(SEPARATOR));
     console.log(`Compiled: ${this.outputPath}`);
   }
@@ -119,9 +149,18 @@ export class CompilationEngine {
     const tag = "classVarDec";
     this.startBlock(tag);
 
+    const keyWord = this.tokenizer.keyWord();
+    if (keyWord !== "field" && keyWord !== "static") {
+      throw new Error(`${keyWord}: invalid keyWord`);
+    }
     const type = this.tokenizer.tokenType();
-    // <keyword> { static | field } </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>{ static | field }</keyword>
+    this.pushResults(`<${type}>${keyWord}</${type}>`);
+
+    this.id = {
+      cat: keyWord,
+    };
+
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -130,6 +169,9 @@ export class CompilationEngine {
     }
 
     this.endBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -138,13 +180,16 @@ export class CompilationEngine {
    * (’constructor’ | ’function’ | ’method’) (’void’ | type) subroutineName ’(’ parameterList ’)’ subroutineBody
    */
   compileSubroutine(): void {
+    this.symbolTable.startSubroutine();
+    this.id = { cat: "subroutine" };
+
     const decTag = "subroutineDec";
     this.startBlock(decTag);
     const bodyTag = "subroutineBody";
 
     const type = this.tokenizer.tokenType();
-    // <keyword> constructor/function/method </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>constructor/function/method</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.nextToken() !== "}"
@@ -163,6 +208,9 @@ export class CompilationEngine {
     this.convertToken(); // "}" を出力
     this.endBlock(bodyTag);
     this.endBlock(decTag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -174,14 +222,21 @@ export class CompilationEngine {
     const tag = "parameterList";
     this.startBlock(tag);
 
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
+
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.nextToken() !== ")"
     ) {
+      this.id = this.id ? this.id : { cat: "argument" };
       this.convertToken();
     }
 
     this.endBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -193,9 +248,18 @@ export class CompilationEngine {
     const tag = "varDec";
     this.startBlock(tag);
 
+    const keyWord = this.tokenizer.keyWord();
+    if (keyWord !== "var") {
+      throw new Error(`${keyWord}: invalid keyWord`);
+    }
     const type = this.tokenizer.tokenType();
-    // <keyword> var </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>var</keyword>
+    this.pushResults(`<${type}>${keyWord}</${type}>`);
+
+    this.id = {
+      cat: keyWord,
+    };
+
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -204,6 +268,9 @@ export class CompilationEngine {
     }
 
     this.endBlock(tag);
+
+    // id の情報が不要になったので id をクリア
+    this.id = undefined;
   }
 
   /**
@@ -261,8 +328,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> do </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>do</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -294,8 +361,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> let </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>let</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -329,8 +396,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> while </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>while</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -367,8 +434,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> return </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>return</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -396,8 +463,8 @@ export class CompilationEngine {
     }
 
     const type = this.tokenizer.tokenType();
-    // <keyword> if </keyword>
-    this.pushResults(`<${type}> ${this.tokenizer.keyWord()} </${type}>`);
+    // <keyword>if</keyword>
+    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -537,5 +604,25 @@ export class CompilationEngine {
     }
 
     this.endBlock(tag);
+  }
+
+  /**
+   * シンボルの種類を取得
+   * @param cat シンボルのカテゴリ
+   * @returns シンボルの種類
+   */
+  private getSymbolKind(cat: string): SymbolKind {
+    switch (cat) {
+      case "var":
+        return "VAR";
+      case "argument":
+        return "ARG";
+      case "static":
+        return "STATIC";
+      case "field":
+        return "FIELD";
+      default:
+        throw new Error(`${cat}: invalid SymbolKind`);
+    }
   }
 }
