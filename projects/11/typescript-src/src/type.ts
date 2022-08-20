@@ -1,3 +1,10 @@
+export type SymbolElement = {
+  name: string;
+  type: string;
+  kind: SymbolKind;
+  index: number;
+};
+
 export type TokenType =
   | "keyword"
   | "symbol"

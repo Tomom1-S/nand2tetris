@@ -2,29 +2,50 @@ import * as fs from "fs";
 import { Indentation } from "./Indentation";
 import { JackTokenizer } from "./JackTokenizer";
 import { SymbolTable } from "./SymbolTable";
-import { operators, SymbolCategory, SymbolKind, unaryOperators } from "./type";
+import {
+  Command,
+  operators,
+  Segment,
+  SymbolCategory,
+  SymbolElement,
+  SymbolKind,
+  unaryOperators,
+} from "./type";
+import { VMWriter } from "./VMWriter";
 
 const SEPARATOR = "\n";
 
 export class CompilationEngine {
   tokenizer: JackTokenizer;
   symbolTable: SymbolTable;
+  writer: VMWriter;
   outputPath: string;
   indentation = new Indentation();
   results: string[] = [];
+  vmResults: string[] = [];
 
   id: { cat: SymbolCategory; type?: string } | undefined;
+  className: string;
+  subroutineData: {
+    name: string;
+    argNums: number;
+  };
+  symbolElement: SymbolElement;
+  stackPop: boolean;
+  returnVoid: boolean;
+  op: string;
 
-  constructor(tokenizer: JackTokenizer, outputPath: string) {
+  constructor(tokenizer: JackTokenizer, writer: VMWriter, outputPath: string) {
     this.tokenizer = tokenizer;
+    this.writer = writer;
     this.outputPath = outputPath;
 
     this.symbolTable = new SymbolTable();
   }
 
   private pushResults(value: string): void {
-    this.results.push(value);
-    // this.results.push(`${this.indentation.spaces()}${value}`);
+    // this.results.push(value);
+    this.results.push(`${this.indentation.spaces()}${value}`);
   }
 
   /**
@@ -81,23 +102,86 @@ export class CompilationEngine {
             this.compileStatements();
             return;
         }
-        // その他のキーワードの場合、変数の型になる
-        if (typeof this.id !== "undefined") {
+        // その他のキーワードの場合、変数/返り値の型になる
+        if (value === "void") {
+          this.returnVoid = true;
+        } else if (typeof this.id !== "undefined") {
           this.id.type = value;
         }
         break;
       case "symbol":
         value = this.tokenizer.symbol();
+        if (this.id && value === ";") {
+          this.id.type = undefined;
+        }
+        switch (value) {
+          case "+":
+          case "-":
+          case "*":
+          case "/":
+          case "&":
+          case "|":
+          case "<":
+          case ">":
+          case "=":
+            this.op = value;
+            break;
+        }
         break;
       case "identifier": {
         value = this.tokenizer.identifier();
 
+        // クラス名を記録
+        if (!this.className) {
+          this.className = value;
+          // break;
+        }
+
         const cat = this.symbolTable.kindOf(value);
         if (typeof this.id === "undefined" && cat !== "none") {
-          // do nothing
+          // identifierの情報が集まっていないが、シンボルテーブルに登録済みの場合
+          // TODO 変数を参照する？
+
+          let segment: Segment;
+          switch (cat) {
+            case "argument":
+            case "static":
+              segment = cat;
+              break;
+            case "field":
+              segment = "this";
+              break;
+            case "var":
+              segment = "local";
+              break;
+          }
+          // push / pop を判断したい
+          if (this.stackPop) {
+            this.writer.writePop(segment, this.symbolTable.indexOf(value));
+          } else {
+            this.writer.writePush(segment, this.symbolTable.indexOf(value));
+          }
+
+          this.symbolElement = {
+            name: value,
+            type: this.symbolTable.typeOf(value),
+            kind: cat,
+            index: this.symbolTable.indexOf(value),
+          };
+          console.log(JSON.stringify(this.symbolElement));
         } else if (typeof this.id === "undefined") {
+          // identifierの情報が集まっていなくて、シンボルテーブルに未登録の場合
+          // do nothing
+          console.log("IDの情報なし・未登録");
           break;
+        } else if (cat === "none" && this.id.cat === "class") {
+          // クラス名のとき
+          this.className = value;
+        } else if (cat === "none" && this.id.cat === "subroutine") {
+          // サブルーチン名のとき
+          this.subroutineData = { name: value, argNums: 0 };
         } else if (cat === "none" && typeof this.id.type === "undefined") {
+          // 変数の型の情報がない場合、型を一時的に記録
           this.id.type = value;
           break;
         } else if (
@@ -105,35 +189,18 @@ export class CompilationEngine {
           this.id.cat !== "class" &&
           this.id.cat !== "subroutine"
         ) {
-          this.symbolTable.define(value, this.id.type!, this.id.cat!);
-        }
-
-        this.startBlock(type);
-        this.pushResults(`<name>${value}</name>`);
-        const symbolKind = this.symbolTable.kindOf(value);
-        // 識別子のカテゴリ(var、argument、static、field、class、subroutine)
-        this.pushResults(
-          `<category>${this.id ? this.id.cat : symbolKind}</category>`
-        );
-        if (symbolKind !== "none") {
-          // 識別子の属性
-          this.pushResults(`<kind>${symbolKind}</kind>`);
-          // 識別子は定義されているか(var) or 使用されているか
-          if (typeof this.id === "undefined" || this.id.cat === "var") {
-            this.pushResults(
-              `<role>${
-                this.id && this.id?.cat === "var" ? "defined" : "used"
-              }</role>`
-            );
+          // シンボルテーブルに登録されていない場合
+          this.symbolTable.define(value, this.id.type!, this.id.cat);
+          // サブルーチンの引数は、型と変数が一対一で対応するので型情報を消す
+          if (this.id.cat === "argument") {
+            this.id.type = undefined;
           }
-          // シンボルテーブルの実行番号
-          this.pushResults(`<index>${this.symbolTable.indexOf(value)}</index>`);
         }
-        this.endBlock(type);
-        return;
+        break;
       }
       case "integerConstant":
         value = this.tokenizer.intVal();
+        this.writer.writePush("constant", value);
         break;
       case "stringConstant":
         value = this.tokenizer.stringVal();
@@ -214,6 +281,7 @@ export class CompilationEngine {
     const type = this.tokenizer.tokenType();
     // <keyword>constructor/function/method</keyword>
     this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.nextToken() !== "}"
@@ -243,22 +311,26 @@ export class CompilationEngine {
    * ((type varName) (’,’ type varName)*)?
    */
   compileParameterList(): void {
-    const tag = "parameterList";
-    this.startBlock(tag);
-
     // id の情報が不要になったので id をクリア
     this.id = {
       cat: "argument",
     };
 
+    // 引数の数を計算するためにループ回数をカウント
+    let count = 0;
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.nextToken() !== ")"
     ) {
       this.convertToken();
+      count++;
     }
 
-    this.endBlock(tag);
+    this.subroutineData.argNums = Math.floor((count + 1) / 3);
+    this.writer.writeFunction(
+      `${this.className}.${this.subroutineData.name}`,
+      this.subroutineData.argNums
+    );
 
     // id の情報が不要になったので id をクリア
     this.id = undefined;
@@ -389,6 +461,7 @@ export class CompilationEngine {
     // <keyword>let</keyword>
     this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
+    let leftSide = true;
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -397,12 +470,22 @@ export class CompilationEngine {
         this.tokenizer.currentToken() === "[" ||
         this.tokenizer.currentToken() === "="
       ) {
+        if (this.tokenizer.currentToken() === "=") {
+          leftSide = false;
+        }
+        if (!leftSide) {
+          this.stackPop = false;
+        }
         this.compileExpression();
         continue;
       }
+      // TODO 左辺の処理は最後に回す？
+      if (leftSide) {
+        this.stackPop = true;
+      }
       this.convertToken();
     }
-
+    this.stackPop = false;
     this.endBlock(tag);
   }
 
@@ -451,16 +534,16 @@ export class CompilationEngine {
    */
   compileReturn(): void {
     const tag = "returnStatement";
-    this.startBlock(tag);
+    // this.startBlock(tag);
 
     // statement が2つ以上連続するときに、";"からトークンを進める
     if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
+    // const type = this.tokenizer.tokenType();
     // <keyword>return</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    // this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -468,9 +551,18 @@ export class CompilationEngine {
     ) {
       this.compileExpression();
     }
-    this.convertToken(); // ";"を出力
 
-    this.endBlock(tag);
+    // this.convertToken(); // ";"を出力
+
+    // this.endBlock(tag);
+
+    // 返り値がないときは定数0を返す
+    if (this.returnVoid) {
+      this.writer.writePush("constant", 0);
+    }
+    // FIXME 返り値があるときはスタックの上に入れ直さないとダメ？
+    this.writer.writeReturn();
+    this.returnVoid = false;
   }
 
   /**
@@ -529,8 +621,48 @@ export class CompilationEngine {
     ) {
       this.convertToken();
       this.compileTerm();
+
+      // TODO ここでwriteArithmeticとか
+      this.compileOperator();
     }
+    // TODO 最後に結果をstackの一番上に入れる
     this.endBlock(tag);
+  }
+
+  compileOperator(): void {
+    let command: Command;
+    switch (this.op) {
+      case "*":
+        this.writer.writeCall("Math.multiply", 5);
+        return;
+      case "/":
+        this.writer.writeCall("Math.divide", 4);
+        return;
+      case "+":
+        command = "add";
+        break;
+      case "-":
+        command = "sub";
+        break;
+      case "&":
+        command = "and";
+        break;
+      case "|":
+        command = "or";
+        break;
+      case "<":
+        command = "lt";
+        break;
+      case ">":
+        command = "gt";
+        break;
+      case "=":
+        command = "eq";
+        break;
+      default:
+        throw new Error(`${this.op}: Invalid operator`);
+    }
+    this.writer.writeArithmetic(command);
   }
 
   /**
@@ -629,5 +761,31 @@ export class CompilationEngine {
     }
 
     this.endBlock(tag);
+  }
+
+  /**
+   * 演算子の記号をコマンド名に変換
+   * @param op 演算子
+   * @returns 演算子のコマンド
+   */
+  private getCommand(op: string): Command {
+    switch (op) {
+      case "+":
+        return "add";
+      case "-":
+        return "sub";
+      case "&":
+        return "and";
+      case "|":
+        return "or";
+      case "<":
+        return "lt";
+      case ">":
+        return "gt";
+      case "=":
+        return "eq";
+      default:
+        throw new Error("_getCommand: Invalid operator");
+    }
   }
 }

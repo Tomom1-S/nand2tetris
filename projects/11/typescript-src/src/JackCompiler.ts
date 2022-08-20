@@ -33,14 +33,15 @@ if (targets === undefined || targets.length == 0) {
 for (const target of targets) {
   const tokenizer = new JackTokenizer(target);
   const parsedTarget = path.parse(target);
+  const writer = new VMWriter(`${parsedTarget.dir}/${parsedTarget.name}.vm`);
   const engine = new CompilationEngine(
     tokenizer,
+    writer,
     `${parsedTarget.dir}/${parsedTarget.name}.xml`
   );
   engine.compileClass();
 
-  const writer = new VMWriter(`${parsedTarget.dir}/${parsedTarget.name}.vm`);
-
+  /*
   const parser = new xml2js.Parser();
   parser.parseString(engine.results, function (error, result) {
     if (error) {
@@ -58,7 +59,6 @@ for (const target of targets) {
     const sbDec = result.class.subroutineDec;
     if (sbDec) {
       for (const s of sbDec) {
-        // console.log(`sbDec: ${JSON.stringify(s)}`);
         const keywords = s.keyword;
         const sbType = keywords[0];
         const retType = keywords[1];
@@ -75,23 +75,7 @@ for (const target of targets) {
         writer.writeFunction(`${className}.${sbName}`, params.length);
 
         for (const body of s.subroutineBody) {
-          // TODO パラメータリストを扱う
-
-          // サブルーチン変数定義
-          const varDecs = body.varDec;
-          if (varDecs) {
-            for (const v of varDecs) {
-              // console.log(`CLASS_VAR ${JSON.stringify(v)}`);
-              // v.identifier.map((name: string) => {
-              //   symbolTable.define(name, v.keyword[1], v.keyword[0]);
-              // });
-            }
-          }
-
           for (const st of body.statements) {
-            // console.log(`statements: ${st}`);
-
-            // TODO void 以外のリターン文
             const returnStatement = st.returnStatement;
             if (typeof st.doStatement === "undefined") {
               continue;
@@ -112,13 +96,17 @@ for (const target of targets) {
             }
           }
         }
+
         if (retType === "void") {
           writer.writePush("constant", 0);
+        } else {
+          // TODO void 以外のリターン文
         }
         writer.writeReturn();
       }
     }
   });
+  */
 
   writer.close();
 }

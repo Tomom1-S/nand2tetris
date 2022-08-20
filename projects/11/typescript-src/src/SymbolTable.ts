@@ -1,19 +1,12 @@
-import { SymbolKind } from "./type";
-
-type element = {
-  name: string;
-  type: string;
-  kind: SymbolKind;
-  index: number;
-};
+import { SymbolElement, SymbolKind } from "./type";
 
 export class SymbolTable {
-  table: { subroutine: Array<element>; klass: Array<element> };
+  table: { subroutine: Array<SymbolElement>; klass: Array<SymbolElement> };
 
   constructor() {
     this.table = {
-      subroutine: [] as Array<element>,
-      klass: [] as Array<element>,
+      subroutine: [] as Array<SymbolElement>,
+      klass: [] as Array<SymbolElement>,
     };
   }
 
@@ -41,16 +34,12 @@ export class SymbolTable {
     switch (kind) {
       case "static":
       case "field":
-        console.log(name);
         this.table.klass.push({ name, type, kind, index });
         break;
       case "argument":
       case "var":
-        console.log(name);
         this.table.subroutine.push({ name, type, kind, index });
         break;
-      default:
-        console.log(kind);
     }
   }
 

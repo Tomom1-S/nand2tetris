@@ -33,7 +33,7 @@ export class JackTokenizer {
       );
     }
     this.token = this.data[++this.index];
-    // console.log(`[L${this.index}] ${this.token}`);
+    console.log(`[L${this.index}] ${this.token}`);
   }
 
   currentToken(): string {
