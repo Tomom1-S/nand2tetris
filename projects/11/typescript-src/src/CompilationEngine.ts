@@ -28,10 +28,14 @@ export class CompilationEngine {
     if: number;
   };
   id: { cat: SymbolCategory; type?: string } | undefined;
-  className: string;
+  classData: {
+    name: string;
+    fieldNum: number;
+  };
   subroutineData:
     | {
         className: string;
+        type?: string;
         functionName?: string;
         argNums: number;
         lclNums: number;
@@ -180,9 +184,18 @@ export class CompilationEngine {
               segment = "local";
               break;
           }
+          // メソッド呼び出しの場合 (オブジェクトのメソッド)
+          if (this.tokenizer.nextToken() === ".") {
+            this.subroutineData = {
+              className: this.symbolTable.typeOf(this.tokenizer.currentToken()),
+              type: "method",
+              argNums: 0,
+              lclNums: 0,
+            };
+            break;
+          }
           // push / pop を判断したい
           if (this.stackPop) {
-            // this.writer.writePop(segment, this.symbolTable.indexOf(value));
             this.letData.target = {
               segment,
               index: this.symbolTable.indexOf(value),
@@ -193,19 +206,37 @@ export class CompilationEngine {
         } else if (typeof this.id === "undefined") {
           // identifierの情報が集まっていなくて、シンボルテーブルに未登録の場合
           // 関数呼び出し
-          if (typeof this.subroutineData === "undefined") {
-            this.subroutineData = { className: value, argNums: 0, lclNums: 0 };
+          if (
+            typeof this.subroutineData === "undefined" &&
+            this.tokenizer.nextToken() === "("
+          ) {
+            this.subroutineData = {
+              className: this.classData.name,
+              functionName: value,
+              type: "method",
+              argNums: 0,
+              lclNums: 0,
+            };
+          } else if (typeof this.subroutineData === "undefined") {
+            this.subroutineData = {
+              className: value,
+              argNums: 0,
+              lclNums: 0,
+            };
           } else {
             this.subroutineData.functionName = value;
           }
           break;
         } else if (cat === "none" && this.id.cat === "class") {
           // クラス名のとき
-          this.className = value;
+          this.classData = {
+            name: value,
+            fieldNum: 0,
+          };
         } else if (cat === "none" && this.id.cat === "subroutine") {
           // サブルーチン名のとき
           this.subroutineData = {
-            className: this.className,
+            className: this.classData.name,
             functionName: value,
             argNums: 0,
             lclNums: 0,
@@ -267,9 +298,6 @@ export class CompilationEngine {
    * (’static’ | ’field’) type varName (’,’ varName)* ’;’
    */
   compileClassVarDec(): void {
-    const tag = "classVarDec";
-    this.startBlock(tag);
-
     const keyWord = this.tokenizer.keyWord();
     if (keyWord !== "field" && keyWord !== "static") {
       throw new Error(`${keyWord}: invalid keyWord`);
@@ -282,14 +310,15 @@ export class CompilationEngine {
       cat: keyWord,
     };
 
+    let count = 0;
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
     ) {
       this.convertToken();
+      count++;
     }
-
-    this.endBlock(tag);
+    this.classData.fieldNum = this.classData.fieldNum + Math.floor(count / 2);
 
     // id の情報が不要になったので id をクリア
     this.id = undefined;
@@ -301,18 +330,9 @@ export class CompilationEngine {
    * (’constructor’ | ’function’ | ’method’) (’void’ | type) subroutineName ’(’ parameterList ’)’ subroutineBody
    */
   compileSubroutine(): void {
-    // FIXME methodのときは引数が k+1 個になる
-
     this.symbolTable.startSubroutine();
     this.id = { cat: "subroutine" };
-
-    const decTag = "subroutineDec";
-    this.startBlock(decTag);
-    const bodyTag = "subroutineBody";
-
-    const type = this.tokenizer.tokenType();
-    // <keyword>constructor/function/method</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
+    const type = this.tokenizer.currentToken();
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -321,9 +341,12 @@ export class CompilationEngine {
       if (this.tokenizer.currentToken() === "(") {
         this.compileParameterList();
         this.convertToken(); // ")" を出力
+        if (!this.subroutineData) {
+          throw new Error("subroutineData is incomplete");
+        }
+        this.subroutineData.type = type;
         continue;
       } else if (this.tokenizer.currentToken() === ")") {
-        this.startBlock(bodyTag);
         this.convertToken(); // "{" を出力
 
         if (this.tokenizer.nextToken() === "var") {
@@ -336,14 +359,19 @@ export class CompilationEngine {
           `${this.subroutineData.className}.${this.subroutineData.functionName}`,
           this.subroutineData.lclNums
         );
+        if (type === "constructor") {
+          // 新しいオブジェクトのためのメモリブロック割り当て
+          this.writer.writePush("constant", this.classData.fieldNum);
+          this.writer.writeCall("Memory.alloc", 1);
+          // オブジェクトのベースをthisセグメントのベースに設定
+          this.writer.writePop("pointer", 0);
+        }
         this.subroutineData = undefined;
         continue;
       }
       this.convertToken();
     }
     this.convertToken(); // "}" を出力
-    this.endBlock(bodyTag);
-    this.endBlock(decTag);
 
     // id の情報が不要になったので id をクリア
     this.id = undefined;
@@ -380,9 +408,6 @@ export class CompilationEngine {
     if (keyWord !== "var") {
       throw new Error(`${keyWord}: invalid keyWord`);
     }
-    const type = this.tokenizer.tokenType();
-    // <keyword>var</keyword>
-    this.pushResults(`<${type}>${keyWord}</${type}>`);
 
     this.id = {
       cat: keyWord,
@@ -467,10 +492,6 @@ export class CompilationEngine {
       this.tokenizer.advance();
     }
 
-    const type = this.tokenizer.tokenType();
-    // <keyword>do</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
-
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -499,17 +520,10 @@ export class CompilationEngine {
    * ’let’ varName (’[’ expression ’]’)? ’=’ expression ’;’
    */
   compileLet(): void {
-    const tag = "letStatement";
-    this.startBlock(tag);
-
     // statement が2つ以上連続するときに、";"からトークンを進める
     if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
-
-    const type = this.tokenizer.tokenType();
-    // <keyword>let</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
 
     this.letData = { leftSide: true, target: null };
     while (
@@ -543,8 +557,6 @@ export class CompilationEngine {
         this.letData.target.index
       );
     }
-
-    this.endBlock(tag);
   }
 
   /**
@@ -559,11 +571,6 @@ export class CompilationEngine {
     }
 
     const count = this.labelCount.while++;
-
-    const type = this.tokenizer.tokenType();
-    // <keyword>while</keyword>
-    this.pushResults(`<${type}>${this.tokenizer.keyWord()}</${type}>`);
-
     this.writer.writeLabel(`WHILE_EXP${count}`);
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -680,7 +687,6 @@ export class CompilationEngine {
 
       this.passOperator();
     }
-    // TODO 最後に結果をstackの一番上に入れる?
   }
 
   /**
@@ -745,13 +751,15 @@ export class CompilationEngine {
           this.convertToken(); // "("
           this.compileExpressionList();
           this.convertToken(); // ")"
-          if (this.subroutineData) {
-            this.writer.writeCall(
-              `${this.subroutineData.className}.${this.subroutineData?.functionName}`,
-              this.subroutineData.argNums
-            );
-            this.subroutineData = undefined;
+          if (!this.subroutineData) {
+            throw new Error("subroutineData is incomplete");
           }
+          this.writer.writeCall(
+            `${this.subroutineData.className}.${this.subroutineData?.functionName}`,
+            this.subroutineData.argNums
+          );
+          this.subroutineData = undefined;
+
           break;
         default:
         // 変数のときは何もしない
@@ -760,9 +768,7 @@ export class CompilationEngine {
     }
     // unaryOp + term
     if (unaryOperators.includes(this.tokenizer.currentToken())) {
-      // this.convertToken(); // unaryOp
       this.compileTerm();
-      // this.endBlock(tag);
       let command: Command;
       switch (this.ops.pop()) {
         case "-":
@@ -779,7 +785,6 @@ export class CompilationEngine {
     }
     // ’(’ expression ’)’
     if (this.tokenizer.currentToken() === "(") {
-      // this.convertToken(); // "("を出力
       this.compileExpression();
       this.convertToken(); // ")"を出力
       return;
@@ -793,6 +798,14 @@ export class CompilationEngine {
    */
   compileExpressionList(): void {
     let count = 0;
+    // メソッドの呼び出しのときは、引数を一つ増やして最初にオブジェクトの参照を渡す
+    if (!this.subroutineData) {
+      throw new Error("subroutineData is incomplete");
+    }
+    if (this.subroutineData.type === "method") {
+      count++;
+      this.writer.writePush("pointer", 0);
+    }
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.nextToken() !== ")"
@@ -833,7 +846,7 @@ export class CompilationEngine {
       case "=":
         return "eq";
       default:
-        throw new Error("_getCommand: Invalid operator");
+        throw new Error("getCommand: Invalid operator");
     }
   }
 }
