@@ -39,6 +39,11 @@ export class CompilationEngine {
         functionName?: string;
         argNums: number;
         lclNums: number;
+        // メソッドの引数の0番目に渡すもの
+        methodOwner?: {
+          segment: Segment;
+          index: number;
+        };
       }
     | undefined;
   returnVoid: boolean;
@@ -130,15 +135,25 @@ export class CompilationEngine {
             return;
         }
         // その他のキーワードの場合、変数/返り値の型になる
-        if (value === "void") {
-          this.returnVoid = true;
-        } else if (value === "true") {
-          this.writer.writePush("constant", 1);
-          this.writer.writeArithmetic("neg");
-        } else if (value === "false") {
-          this.writer.writePush("constant", 0);
-        } else if (typeof this.id !== "undefined") {
+        if (typeof this.id !== "undefined") {
           this.id.type = value;
+          break;
+        }
+        switch (value) {
+          case "void":
+            this.returnVoid = true;
+            break;
+          case "true":
+            this.writer.writePush("constant", 1);
+            this.writer.writeArithmetic("neg");
+            break;
+          case "false":
+          case "null":
+            this.writer.writePush("constant", 0);
+            break;
+          case "this":
+            this.writer.writePush("pointer", 0);
+            break;
         }
         break;
       case "symbol":
@@ -191,7 +206,16 @@ export class CompilationEngine {
               type: "method",
               argNums: 0,
               lclNums: 0,
+              methodOwner: {
+                segment,
+                index: this.symbolTable.indexOf(value),
+              },
             };
+            // 一つ目の引数にオブジェクトを渡す
+            this.writer.writePush(
+              this.subroutineData.methodOwner!.segment,
+              this.subroutineData.methodOwner!.index
+            );
             break;
           }
           // push / pop を判断したい
@@ -216,6 +240,10 @@ export class CompilationEngine {
               type: "method",
               argNums: 0,
               lclNums: 0,
+              methodOwner: {
+                segment: "pointer",
+                index: 0,
+              },
             };
           } else if (typeof this.subroutineData === "undefined") {
             this.subroutineData = {
@@ -333,6 +361,10 @@ export class CompilationEngine {
     this.symbolTable.startSubroutine();
     this.id = { cat: "subroutine" };
     const type = this.tokenizer.currentToken();
+    // メソッドのときは0番目の引数にthisが渡される
+    if (type === "method") {
+      this.symbolTable.define("this", this.classData.name, "argument");
+    }
 
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -349,8 +381,8 @@ export class CompilationEngine {
       } else if (this.tokenizer.currentToken() === ")") {
         this.convertToken(); // "{" を出力
 
-        if (this.tokenizer.nextToken() === "var") {
-          continue;
+        while (this.tokenizer.nextToken() === "var") {
+          this.convertToken();
         }
         if (!this.subroutineData) {
           throw new Error("subroutineData is incomplete");
@@ -359,12 +391,19 @@ export class CompilationEngine {
           `${this.subroutineData.className}.${this.subroutineData.functionName}`,
           this.subroutineData.lclNums
         );
-        if (type === "constructor") {
-          // 新しいオブジェクトのためのメモリブロック割り当て
-          this.writer.writePush("constant", this.classData.fieldNum);
-          this.writer.writeCall("Memory.alloc", 1);
-          // オブジェクトのベースをthisセグメントのベースに設定
-          this.writer.writePop("pointer", 0);
+        switch (type) {
+          case "constructor":
+            // 新しいオブジェクトのためのメモリブロック割り当て
+            this.writer.writePush("constant", this.classData.fieldNum);
+            this.writer.writeCall("Memory.alloc", 1);
+            // オブジェクトのベースをthisセグメントのベースに設定
+            this.writer.writePop("pointer", 0);
+            break;
+          case "method":
+            // 0番目の引数をthisセグメントのベースに設定
+            this.writer.writePush("argument", 0);
+            this.writer.writePop("pointer", 0);
+            break;
         }
         this.subroutineData = undefined;
         continue;
@@ -430,12 +469,6 @@ export class CompilationEngine {
     if (this.tokenizer.nextToken() === "var") {
       return;
     }
-
-    this.writer.writeFunction(
-      `${this.subroutineData.className}.${this.subroutineData.functionName}`,
-      this.subroutineData.lclNums
-    );
-    this.subroutineData = undefined;
 
     // id の情報が不要になったので id をクリア
     this.id = undefined;
@@ -678,6 +711,8 @@ export class CompilationEngine {
    */
   compileExpression(): void {
     this.compileTerm();
+
+    // (op term)*
     while (
       this.tokenizer.hasMoreTokens() &&
       operators.includes(this.tokenizer.nextToken())
@@ -802,9 +837,10 @@ export class CompilationEngine {
     if (!this.subroutineData) {
       throw new Error("subroutineData is incomplete");
     }
-    if (this.subroutineData.type === "method") {
+    const data = this.subroutineData;
+    if (data.type === "method") {
       count++;
-      this.writer.writePush("pointer", 0);
+      this.writer.writePush(data.methodOwner!.segment, data.methodOwner!.index);
     }
     while (
       this.tokenizer.hasMoreTokens() &&
@@ -822,31 +858,5 @@ export class CompilationEngine {
       throw new Error("subroutineData is incomplete");
     }
     this.subroutineData.argNums = count;
-  }
-
-  /**
-   * 演算子の記号をコマンド名に変換
-   * @param op 演算子
-   * @returns 演算子のコマンド
-   */
-  private getCommand(op: string): Command {
-    switch (op) {
-      case "+":
-        return "add";
-      case "-":
-        return "sub";
-      case "&":
-        return "and";
-      case "|":
-        return "or";
-      case "<":
-        return "lt";
-      case ">":
-        return "gt";
-      case "=":
-        return "eq";
-      default:
-        throw new Error("getCommand: Invalid operator");
-    }
   }
 }
