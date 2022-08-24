@@ -18,7 +18,6 @@ export class CompilationEngine {
   tokenizer: JackTokenizer;
   symbolTable: SymbolTable;
   writer: VMWriter;
-  outputPath: string;
   indentation = new Indentation();
   results: string[] = [];
   vmResults: string[] = [];
@@ -58,10 +57,9 @@ export class CompilationEngine {
   stackPop: boolean; // true: pop, false: push
   ops: string[] = []; // 文中の演算子をスタック形式で保持
 
-  constructor(tokenizer: JackTokenizer, writer: VMWriter, outputPath: string) {
+  constructor(tokenizer: JackTokenizer, writer: VMWriter) {
     this.tokenizer = tokenizer;
     this.writer = writer;
-    this.outputPath = outputPath;
 
     this.symbolTable = new SymbolTable();
 
@@ -69,29 +67,6 @@ export class CompilationEngine {
       while: 0,
       if: 0,
     };
-  }
-
-  private pushResults(value: string): void {
-    // this.results.push(value);
-    this.results.push(`${this.indentation.spaces()}${value}`);
-  }
-
-  /**
-   * 開始タグを挿入
-   * @param tag
-   */
-  private startBlock(tag: string): void {
-    this.pushResults(`<${tag}>`);
-    // this.indentation.indent();
-  }
-
-  /**
-   * 終了タグを挿入
-   * @param tag
-   */
-  private endBlock(tag: string): void {
-    // this.indentation.outdent();
-    this.pushResults(`</${tag}>`);
   }
 
   /**
@@ -211,11 +186,6 @@ export class CompilationEngine {
                 index: this.symbolTable.indexOf(value),
               },
             };
-            // 一つ目の引数にオブジェクトを渡す
-            this.writer.writePush(
-              this.subroutineData.methodOwner!.segment,
-              this.subroutineData.methodOwner!.index
-            );
             break;
           }
           // push / pop を判断したい
@@ -295,7 +265,6 @@ export class CompilationEngine {
         value = this.tokenizer.stringVal();
         break;
     }
-    this.pushResults(`<${type}>${value}</${type}>`);
   }
 
   /**
@@ -304,20 +273,12 @@ export class CompilationEngine {
    * ’class’ className ’{’ classVarDec* subroutineDec* ’}’
    */
   compileClass(): void {
-    const tag = "class";
-    this.startBlock(tag);
-
     while (this.tokenizer.hasMoreTokens()) {
       this.convertToken();
     }
-    this.endBlock(tag);
-    this.pushResults("");
 
     // id の情報が不要になったので id をクリア
     this.id = undefined;
-
-    fs.writeFileSync(this.outputPath, this.results.join(SEPARATOR));
-    console.log(`Compiled: ${this.outputPath}`);
   }
 
   /**
@@ -330,9 +291,6 @@ export class CompilationEngine {
     if (keyWord !== "field" && keyWord !== "static") {
       throw new Error(`${keyWord}: invalid keyWord`);
     }
-    const type = this.tokenizer.tokenType();
-    // <keyword>{ static | field }</keyword>
-    this.pushResults(`<${type}>${keyWord}</${type}>`);
 
     this.id = {
       cat: keyWord,
@@ -482,9 +440,6 @@ export class CompilationEngine {
    * letStatement | ifStatement | whileStatement | doStatement | returnStatement
    */
   compileStatements(): void {
-    const tag = "statements";
-    this.startBlock(tag);
-
     // FIXME? 適切な場所までトークンを進める
     if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
@@ -511,7 +466,6 @@ export class CompilationEngine {
       }
       token = this.tokenizer.nextToken();
     }
-    this.endBlock(tag);
   }
 
   /**
@@ -545,6 +499,8 @@ export class CompilationEngine {
       this.subroutineData.argNums
     );
     this.subroutineData = undefined;
+    // void メソッドで0が返ってくるので、返り値をダンプする
+    this.writer.writePop("temp", 0);
   }
 
   /**
