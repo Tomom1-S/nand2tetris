@@ -1,4 +1,3 @@
-import * as fs from "fs";
 import { Indentation } from "./Indentation";
 import { JackTokenizer } from "./JackTokenizer";
 import { SymbolTable } from "./SymbolTable";
@@ -11,8 +10,6 @@ import {
   unaryOperators,
 } from "./type";
 import { VMWriter } from "./VMWriter";
-
-const SEPARATOR = "\n";
 
 export class CompilationEngine {
   tokenizer: JackTokenizer;
