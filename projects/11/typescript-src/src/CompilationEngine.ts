@@ -258,9 +258,19 @@ export class CompilationEngine {
         value = this.tokenizer.intVal();
         this.writer.writePush("constant", value);
         break;
-      case "stringConstant":
+      case "stringConstant": {
         value = this.tokenizer.stringVal();
+        // 文字列を作る
+        const len = value.length;
+        this.writer.writePush("constant", len);
+        this.writer.writeCall("String.new", 1);
+        // String.appendChar(nextChar) で一文字ずつ文字列の配列に入れる
+        for (let i = 0; i < len; i++) {
+          this.writer.writePush("constant", value.charCodeAt(i));
+          this.writer.writeCall("String.appendChar", 2);
+        }
         break;
+      }
     }
   }
 
