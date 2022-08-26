@@ -42,10 +42,11 @@ export class CompilationEngine {
         };
       }
     | undefined;
-  returnVoid: boolean;
+  returnsVoid: boolean;
   symbolElement: SymbolElement;
   letData: {
     leftSide: boolean;
+    leftArray: boolean;
     target: {
       segment: Segment;
       index: number;
@@ -64,6 +65,7 @@ export class CompilationEngine {
       while: 0,
       if: 0,
     };
+    this.letData = { leftSide: true, leftArray: false, target: null };
   }
 
   /**
@@ -113,7 +115,7 @@ export class CompilationEngine {
         }
         switch (value) {
           case "void":
-            this.returnVoid = true;
+            this.returnsVoid = true;
             break;
           case "true":
             this.writer.writePush("constant", 1);
@@ -183,6 +185,26 @@ export class CompilationEngine {
                 index: this.symbolTable.indexOf(value),
               },
             };
+            break;
+          }
+          // 配列のときはベースアドレスをスタックに入れる
+          if (this.tokenizer.nextToken() === "[") {
+            if (this.letData.leftSide) {
+              this.letData.leftArray = true;
+            }
+
+            this.writer.writePush(segment, this.symbolTable.indexOf(value));
+            this.convertToken(); // "["
+            const temp = this.stackPop;
+            this.stackPop = false;
+            this.compileExpression();
+            this.convertToken(); // "]"
+            this.writer.writeArithmetic("add");
+            this.writer.writePop("pointer", 1);
+            this.stackPop = temp;
+            if (!this.letData.leftSide) {
+              this.writer.writePush("that", 0);
+            }
             break;
           }
           // push / pop を判断したい
@@ -521,21 +543,15 @@ export class CompilationEngine {
       this.tokenizer.advance();
     }
 
-    this.letData = { leftSide: true, target: null };
+    this.letData = { leftSide: true, leftArray: false, target: null };
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
     ) {
-      if (
-        this.tokenizer.currentToken() === "[" ||
-        this.tokenizer.currentToken() === "="
-      ) {
-        if (this.tokenizer.currentToken() === "=") {
-          this.letData.leftSide = false;
-        }
-        if (!this.letData.leftSide) {
-          this.stackPop = false;
-        }
+      if (this.tokenizer.currentToken() === "=") {
+        this.letData.leftSide = false;
+        this.stackPop = false;
+
         // TODO 右辺で関数呼び出しをする場合の処理をしたい
         this.compileExpression();
         continue;
@@ -545,6 +561,13 @@ export class CompilationEngine {
       }
       this.convertToken();
     }
+
+    // 配列に代入する式だった場合、値を取り出す
+    if (this.letData && this.letData.leftArray) {
+      this.writer.writePop("that", 0);
+      this.letData = { leftSide: false, leftArray: false, target: null };
+    }
+
     this.stackPop = false;
 
     if (this.letData.target) {
@@ -553,6 +576,7 @@ export class CompilationEngine {
         this.letData.target.index
       );
     }
+    this.letData = { leftSide: false, leftArray: false, target: null };
   }
 
   /**
@@ -612,11 +636,11 @@ export class CompilationEngine {
     }
 
     // 返り値がないときは定数0を返す
-    if (this.returnVoid) {
+    if (this.returnsVoid) {
       this.writer.writePush("constant", 0);
     }
     this.writer.writeReturn();
-    this.returnVoid = false;
+    this.returnsVoid = false;
   }
 
   /**
@@ -736,12 +760,6 @@ export class CompilationEngine {
 
     if (this.tokenizer.tokenType() === "identifier") {
       switch (this.tokenizer.nextToken()) {
-        case "[":
-          // 配列 varName ’[’ expression ’]’
-          this.convertToken(); // "["
-          this.compileExpression();
-          this.convertToken(); // "]"
-          break;
         case ".":
           // クラス、オブジェクトのサブルーチン呼び出し
           this.convertToken(); // "."
