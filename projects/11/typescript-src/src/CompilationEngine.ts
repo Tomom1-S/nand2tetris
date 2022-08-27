@@ -331,10 +331,12 @@ export class CompilationEngine {
       this.tokenizer.currentToken() !== ";"
     ) {
       this.convertToken();
-      count++;
+      // クラスフィールドの数のみをカウント
+      if (this.id.cat === "field") {
+        count++;
+      }
     }
     this.classData.fieldNum = this.classData.fieldNum + Math.floor(count / 2);
-
     // id の情報が不要になったので id をクリア
     this.id = undefined;
   }
@@ -662,24 +664,29 @@ export class CompilationEngine {
         (this.tokenizer.currentToken() === "}" &&
           this.tokenizer.nextToken() === "else"))
     ) {
-      if (this.tokenizer.currentToken() === "(") {
+      const currentToken = this.tokenizer.currentToken();
+      if (currentToken === "(") {
         this.compileExpression();
         this.convertToken(); // ")" を出力
         continue;
       }
-      if (this.tokenizer.currentToken() === ")") {
-        this.writer.writeIf(`IF_TRUE${count}`);
-        this.writer.writeGoto(`IF_FALSE${count}`);
-        this.writer.writeLabel(`IF_TRUE${count}`);
+      if ([")", "else"].includes(currentToken)) {
+        switch (currentToken) {
+          case ")":
+            this.writer.writeIf(`IF_TRUE${count}`);
+            this.writer.writeGoto(`IF_FALSE${count}`);
+            this.writer.writeLabel(`IF_TRUE${count}`);
+            break;
+          case "else":
+            includesElse = true;
+            this.writer.writeGoto(`IF_END${count}`);
+            this.writer.writeLabel(`IF_FALSE${count}`);
+            break;
+        }
         this.convertToken(); // "{" を出力
         this.compileStatements();
         this.convertToken(); // "}" を出力
         continue;
-      }
-      if (this.tokenizer.currentToken() === "else") {
-        includesElse = true;
-        this.writer.writeGoto(`IF_END${count}`);
-        this.writer.writeLabel(`IF_FALSE${count}`);
       }
       this.convertToken();
     }
