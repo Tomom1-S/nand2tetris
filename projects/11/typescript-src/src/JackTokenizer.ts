@@ -47,13 +47,6 @@ export class JackTokenizer {
     return this.data[this.index + 1];
   }
 
-  moreNextToken(): string {
-    if (this.index + 1 >= this.data.length) {
-      return "";
-    }
-    return this.data[this.index + 2];
-  }
-
   tokenType(): TokenType {
     if (keyWords.includes(this.token)) {
       return "keyword";
