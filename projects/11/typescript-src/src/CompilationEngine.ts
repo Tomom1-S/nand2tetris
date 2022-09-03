@@ -47,6 +47,8 @@ export class CompilationEngine {
   letData: {
     leftSide: boolean;
     leftArray: boolean;
+    // pointerUse: boolean;
+    // array: boolean[];
     target: {
       segment: Segment;
       index: number;
@@ -65,7 +67,13 @@ export class CompilationEngine {
       while: 0,
       if: 0,
     };
-    this.letData = { leftSide: true, leftArray: false, target: null };
+    this.letData = {
+      leftSide: true,
+      leftArray: false,
+      // pointerUse: false,
+      // array: [],
+      target: null,
+    };
   }
 
   /**
@@ -189,22 +197,36 @@ export class CompilationEngine {
           }
           // 配列のときはベースアドレスをスタックに入れる
           if (this.tokenizer.nextToken() === "[") {
+            const tempLeftArray = this.letData.leftArray;
             if (this.letData.leftSide) {
               this.letData.leftArray = true;
             }
 
             this.writer.writePush(segment, this.symbolTable.indexOf(value));
             this.convertToken(); // "["
-            const temp = this.stackPop;
             this.stackPop = false;
             this.compileExpression();
             this.convertToken(); // "]"
             this.writer.writeArithmetic("add");
-            this.writer.writePop("pointer", 1);
-            this.stackPop = temp;
-            if (!this.letData.leftSide) {
+            // if (!this.letData.leftArray) {
+            //   this.writer.writePop("pointer", 1);
+            // }
+
+            // if (
+            //   this.letData.tempUse.length !== 0 &&
+            //   this.letData.tempUse.pop()
+            // ) {
+            //   this.writer.writePush("temp", 0);
+            // }
+            // this.stackPop = temp;
+            if (!this.letData.leftSide || tempLeftArray) {
+              this.writer.writePop("pointer", 1);
               this.writer.writePush("that", 0);
             }
+            // if (!this.letData.leftSide) {
+            //   this.writer.writePop("temp", 0);
+            //   this.letData.tempUse.push(true);
+            // }
             break;
           }
           // push / pop を判断したい
@@ -545,7 +567,13 @@ export class CompilationEngine {
       this.tokenizer.advance();
     }
 
-    this.letData = { leftSide: true, leftArray: false, target: null };
+    this.letData = {
+      leftSide: true,
+      leftArray: false,
+      // pointerUse: false,
+      // tempUse: [],
+      target: null,
+    };
     while (
       this.tokenizer.hasMoreTokens() &&
       this.tokenizer.currentToken() !== ";"
@@ -566,8 +594,20 @@ export class CompilationEngine {
 
     // 配列に代入する式だった場合、値を取り出す
     if (this.letData && this.letData.leftArray) {
+      // this.writer.writePop("pointer", 1);
+      // this.writer.writePush("that", 0);
+      this.writer.writePop("temp", 0);
+      this.writer.writePop("pointer", 1);
+      this.writer.writePush("temp", 0);
+
       this.writer.writePop("that", 0);
-      this.letData = { leftSide: false, leftArray: false, target: null };
+      this.letData = {
+        leftSide: false,
+        leftArray: false,
+        // pointerUse: false,
+        // tempUse: [],
+        target: null,
+      };
     }
 
     this.stackPop = false;
@@ -578,7 +618,13 @@ export class CompilationEngine {
         this.letData.target.index
       );
     }
-    this.letData = { leftSide: false, leftArray: false, target: null };
+    this.letData = {
+      leftSide: false,
+      leftArray: false,
+      // pointerUse: false,
+      // tempUse: [],
+      target: null,
+    };
   }
 
   /**
@@ -782,7 +828,6 @@ export class CompilationEngine {
             this.subroutineData.argNums
           );
           this.subroutineData = undefined;
-
           break;
         default:
         // 変数のときは何もしない
