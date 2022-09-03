@@ -8,11 +8,14 @@ export class Indentation {
     return SPACE.repeat(this.level * ONE_LEVEL);
   }
 
-  async indent(): Promise<void> {
+  indent(): void {
     this.level++;
   }
 
-  async outdent(): Promise<void> {
+  outdent(): void {
     this.level--;
+    if (this.level < 0) {
+      this.level = 0;
+    }
   }
 }

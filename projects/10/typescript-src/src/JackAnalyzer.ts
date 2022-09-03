@@ -16,7 +16,7 @@ const main = async () => {
     tokenizer,
     `${parsedTarget.dir}/${parsedTarget.name}.xml`
   );
-  await engine.compileClass();
+  engine.compileClass();
 };
 
 main();
