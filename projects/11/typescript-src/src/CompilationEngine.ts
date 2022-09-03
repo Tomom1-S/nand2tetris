@@ -45,10 +45,8 @@ export class CompilationEngine {
   returnsVoid: boolean;
   symbolElement: SymbolElement;
   letData: {
-    leftSide: boolean;
-    leftArray: boolean;
-    // pointerUse: boolean;
-    // array: boolean[];
+    leftSide: boolean; // 左辺の処理中かどうか
+    leftArray: boolean; // 左辺が配列かどうか
     target: {
       segment: Segment;
       index: number;
@@ -70,8 +68,6 @@ export class CompilationEngine {
     this.letData = {
       leftSide: true,
       leftArray: false,
-      // pointerUse: false,
-      // array: [],
       target: null,
     };
   }
@@ -208,25 +204,10 @@ export class CompilationEngine {
             this.compileExpression();
             this.convertToken(); // "]"
             this.writer.writeArithmetic("add");
-            // if (!this.letData.leftArray) {
-            //   this.writer.writePop("pointer", 1);
-            // }
-
-            // if (
-            //   this.letData.tempUse.length !== 0 &&
-            //   this.letData.tempUse.pop()
-            // ) {
-            //   this.writer.writePush("temp", 0);
-            // }
-            // this.stackPop = temp;
             if (!this.letData.leftSide || tempLeftArray) {
               this.writer.writePop("pointer", 1);
               this.writer.writePush("that", 0);
             }
-            // if (!this.letData.leftSide) {
-            //   this.writer.writePop("temp", 0);
-            //   this.letData.tempUse.push(true);
-            // }
             break;
           }
           // push / pop を判断したい
@@ -493,7 +474,6 @@ export class CompilationEngine {
    * letStatement | ifStatement | whileStatement | doStatement | returnStatement
    */
   compileStatements(): void {
-    // FIXME? 適切な場所までトークンを進める
     if (this.tokenizer.tokenType() !== "keyword") {
       this.tokenizer.advance();
     }
@@ -570,8 +550,6 @@ export class CompilationEngine {
     this.letData = {
       leftSide: true,
       leftArray: false,
-      // pointerUse: false,
-      // tempUse: [],
       target: null,
     };
     while (
@@ -604,8 +582,6 @@ export class CompilationEngine {
       this.letData = {
         leftSide: false,
         leftArray: false,
-        // pointerUse: false,
-        // tempUse: [],
         target: null,
       };
     }
@@ -621,8 +597,6 @@ export class CompilationEngine {
     this.letData = {
       leftSide: false,
       leftArray: false,
-      // pointerUse: false,
-      // tempUse: [],
       target: null,
     };
   }
